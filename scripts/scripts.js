@@ -1381,8 +1381,9 @@ if (window.hlx.aemRoot || window.location.href.includes('.html')) {
   decodeAemPageMetaTags();
 }
 
-// load the page unless DO_NOT_LOAD_PAGE is set - used for existing EXLM pages POC
+// eslint-disable-next-line func-names
 (async function () {
+  // load the page unless DO_NOT_LOAD_PAGE is set - used for existing EXLM pages POC and for header include in community and legacy
   if (!window.hlx.DO_NOT_LOAD_PAGE) {
     const { lang } = getPathDetails();
     document.documentElement.lang = lang || 'en';
