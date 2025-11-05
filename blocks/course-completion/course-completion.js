@@ -2,6 +2,10 @@ import { htmlToElement, fetchLanguagePlaceholders } from '../../scripts/scripts.
 import createCanvas from '../../scripts/utils/canvas-utils.js';
 import { canvasToPDF } from '../../scripts/utils/canvas-pdf-utils.js';
 import { launchConfetti } from '../../scripts/utils/confetti-utils.js';
+import { decorateIcons } from '../../scripts/lib-franklin.js';
+import { getCurrentCourseMeta, extractCourseModuleIds } from '../../scripts/courses/course-utils.js';
+import { pushCourseCertificateEvent } from '../../scripts/analytics/lib-analytics.js';
+import { getCurrentCourses, getUserDisplayName } from '../../scripts/courses/course-profile.js';
 
 const CONFIG = {
   CONFETTI: {
@@ -26,12 +30,22 @@ const CONFIG = {
     HEIGHT: 285,
     SCALE: 3,
   },
-  API: {
-    URL: 'https://mocki.io/v1/d882efc4-04b9-4a5c-8110-a10fb18878bf', // Mock API URL - To be replaced with Profile API once implemented
-  },
 };
 
 let placeholders = {};
+
+/**
+ * Determines the optimal text wrapping configuration based on text length
+ * @param {string} text - Text to analyze
+ * @returns {Object} Configuration with charLength and fontSize
+ */
+function getTextWrapConfig(text) {
+  const len = text.length;
+  if (len >= 70) return { charLength: 30, fontSize: 16 };
+  if (len >= 60) return { charLength: 30, fontSize: 18 };
+  if (len >= 40) return { charLength: 30, fontSize: 20 };
+  return { charLength: 25, fontSize: 23 };
+}
 
 /**
  * Simple text wrapping - breaks long text into multiple lines
@@ -39,7 +53,7 @@ let placeholders = {};
  * @param {number} maxLength - Maximum characters per line
  * @returns {string} Wrapped text with line breaks
  */
-function wrapText(text, maxLength = 30) {
+function wrapText(text, maxLength = 25) {
   if (text.length <= maxLength) return text;
 
   const words = text.split(' ');
@@ -59,22 +73,60 @@ function wrapText(text, maxLength = 30) {
   return lines.join('\n');
 }
 
-/**
- * Fetches course data from API
- */
-async function fetchCourseData() {
-  try {
-    const response = await fetch(CONFIG.API.URL);
-    if (!response.ok) {
-      throw new Error(`HTTP error! status: ${response.status}`);
-    }
-    const data = await response.json();
-    return data.course;
-  } catch (error) {
-    /* eslint-disable-next-line no-console */
-    console.error('Error fetching course data:', error);
-    throw error;
+function getCourseLandingPageUrl() {
+  const parts = window.location.pathname.split('/').filter(Boolean);
+  if (parts.length >= 2) {
+    const url = new URL(window.location.origin);
+    url.pathname = `/${parts[0]}/${parts[1]}`;
+    return url.toString();
   }
+  return null;
+}
+
+/**
+ * Fetches certificate data for the current course
+ * @returns {Promise<Object>} Certificate data
+ */
+async function fetchCertificateData() {
+  let courseMeta = {};
+  let completionHours = '';
+  let completionDate = null;
+  let userName = null;
+
+  try {
+    // Get course metadata from course-utils
+    courseMeta = await getCurrentCourseMeta();
+
+    // Extract completion time from course metadata
+    completionHours = courseMeta?.totalTime?.match(/\d+/)?.[0] || '';
+
+    // Get the current course ID
+    const { courseId } = extractCourseModuleIds(window.location.pathname);
+
+    // Get user name from profile using the utility function
+    userName = await getUserDisplayName();
+
+    // Get course completion date from awards.timestamp
+    const courses = await getCurrentCourses();
+    const course = courses?.find((c) => c.courseId === courseId);
+    if (course?.awards?.timestamp) {
+      // Convert timestamp to readable date
+      const awardDate = new Date(course.awards.timestamp);
+      const options = { year: 'numeric', month: 'long', day: 'numeric' };
+      completionDate = awardDate.toLocaleDateString('en-US', options);
+    }
+  } catch (e) {
+    // eslint-disable-next-line no-console
+    console.error('Error getting user profile or completion date:', e);
+  }
+
+  // Return certificate data with fallbacks for null values
+  return {
+    name: courseMeta?.heading || 'Course Title',
+    completionTimeInHrs: completionHours || '',
+    userName: userName || 'User',
+    completionDate: completionDate || '',
+  };
 }
 
 /**
@@ -120,7 +172,7 @@ async function downloadCertificate(canvas, courseData, downloadButton) {
       .replace(/[^a-zA-Z0-9\s]/g, '')
       .replace(/\s+/g, '-')
       .toLowerCase();
-    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD - Would be replaced with issued date from API
+    const date = new Date().toISOString().split('T')[0]; // YYYY-MM-DD
     const filename = `${courseName}-certificate-${date}.pdf`;
 
     // Download as PDF with actual canvas dimensions (no scaling)
@@ -136,6 +188,16 @@ async function downloadCertificate(canvas, courseData, downloadButton) {
     const link = document.createElement('a');
     link.href = url;
     link.download = filename;
+
+    pushCourseCertificateEvent({
+      action: 'download',
+      title: courseName,
+      solution: courseData.solution,
+      role: courseData.role,
+      linkTitle: downloadButton.textContent?.trim(),
+      destinationDomain: window.location.href,
+      id: courseData.id,
+    });
 
     // Trigger download
     document.body.appendChild(link);
@@ -154,6 +216,30 @@ async function downloadCertificate(canvas, courseData, downloadButton) {
     // Re-enable button
     downloadButton.disabled = false;
   }
+}
+
+/**
+ * Shares the course completion to LinkedIn
+ */
+function shareToLinkedIn(courseData, linkedInShareBtn) {
+  const shareUrl = getCourseLandingPageUrl();
+  if (!shareUrl) return;
+
+  pushCourseCertificateEvent({
+    action: 'share',
+    title: courseData.name,
+    solution: courseData.solution,
+    role: courseData.role,
+    linkTitle: linkedInShareBtn.textContent?.trim(),
+    destinationDomain: window.location.href,
+    id: courseData.id,
+  });
+
+  window.open(
+    `https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(shareUrl)}`,
+    '_blank',
+    'width=600,height=400,scrollbars=yes,resizable=yes',
+  );
 }
 
 /**
@@ -180,41 +266,46 @@ async function createCertificateContainer(courseData) {
   container.classList.add('course-completion-certificate-container');
 
   // Create certificate text using API data with scale adjustment and placeholders
+  const courseName = courseData.name || '';
+  const textConfig = getTextWrapConfig(courseName);
+
   const certificateText = [
     {
-      content: wrapText(courseData.name, 20), // Simple character-based wrapping
-      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 115 * CONFIG.CERTIFICATE.SCALE },
-      font: { size: `${22 * CONFIG.CERTIFICATE.SCALE}px`, weight: 'bold' },
+      content: wrapText(courseName, textConfig.charLength), // Dynamic character-based wrapping
+      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 80 * CONFIG.CERTIFICATE.SCALE },
+      font: { size: `${textConfig.fontSize * CONFIG.CERTIFICATE.SCALE}px`, weight: 'bold' },
       color: '#2C2C2C',
       align: 'center',
     },
     {
       content: placeholders?.courseCompletedByText || 'COMPLETED BY',
-      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 180 * CONFIG.CERTIFICATE.SCALE },
+      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 140 * CONFIG.CERTIFICATE.SCALE },
       font: { size: `${8 * CONFIG.CERTIFICATE.SCALE}px` },
       color: '#686868',
       align: 'center',
     },
     {
-      content: 'John Doe',
-      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 195 * CONFIG.CERTIFICATE.SCALE },
+      content: courseData.userName || '',
+      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 155 * CONFIG.CERTIFICATE.SCALE },
       font: { size: `${16 * CONFIG.CERTIFICATE.SCALE}px`, weight: 'bold' },
       color: '#2C2C2C',
       align: 'center',
     },
     {
-      content: 'ISSUED July 30, 2025',
-      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 220 * CONFIG.CERTIFICATE.SCALE },
+      content: courseData.completionDate
+        ? `${placeholders?.courseIssuedDateText || 'ISSUED'} ${courseData.completionDate}`
+        : '',
+      position: { x: 185 * CONFIG.CERTIFICATE.SCALE, y: 180 * CONFIG.CERTIFICATE.SCALE },
       font: { size: `${8.5 * CONFIG.CERTIFICATE.SCALE}px` },
       color: '#686868',
       align: 'center',
     },
     {
-      content: (placeholders?.courseCompletionTimeText || 'Completion Time [hours] hours').replace(
+      content: (placeholders?.courseCompletionTimeText || 'Time to complete: [hours] hours').replace(
         '[hours]',
         courseData.completionTimeInHrs,
       ),
-      position: { x: 300 * CONFIG.CERTIFICATE.SCALE, y: 240 * CONFIG.CERTIFICATE.SCALE },
+      position: { x: 300 * CONFIG.CERTIFICATE.SCALE, y: 250 * CONFIG.CERTIFICATE.SCALE },
       font: { size: `${7.5 * CONFIG.CERTIFICATE.SCALE}px` },
       color: '#2C2C2C',
       align: 'center',
@@ -254,17 +345,25 @@ async function createCertificateContainer(courseData) {
  * @returns {HTMLElement} Content container
  */
 function createContent(children, certificateCanvas, courseData) {
-  const [title, description, downloadBtn] = children;
+  const [title, description, linkedInBtn, downloadBtn] = children;
 
   const container = htmlToElement(`
     <div class="course-completion-content-container">
       <h1>${title?.textContent}</h1>
       <p>${description?.textContent}</p>
       <div class="course-completion-button-container">
-        <button class="btn primary download-certificate">${downloadBtn?.textContent}</button>
+        <button class="btn primary linkedin-share"><span class="icon icon-linkedin-white"></span>${linkedInBtn?.textContent}</button>
+        <button class="btn secondary download-certificate">${downloadBtn?.textContent}</button>
       </div>
     </div>
   `);
+
+  // Add LinkedIn share functionality
+  const linkedInShareBtn = container.querySelector('.linkedin-share');
+  if (linkedInShareBtn) {
+    linkedInShareBtn.addEventListener('click', () => shareToLinkedIn(courseData, linkedInShareBtn));
+  }
+
   // Add PDF download functionality to download certificate button
   const downloadCertificateBtn = container.querySelector('.download-certificate');
   if (downloadBtn && downloadCertificateBtn && certificateCanvas) {
@@ -272,7 +371,6 @@ function createContent(children, certificateCanvas, courseData) {
       downloadCertificate(certificateCanvas, courseData, downloadCertificateBtn),
     );
   }
-
   return container;
 }
 
@@ -298,10 +396,10 @@ export default async function decorate(block) {
   block.appendChild(shimmerContainer);
 
   try {
-    // Fetch course data from API
-    const courseData = await fetchCourseData();
+    // Fetch certificate data
+    const courseData = await fetchCertificateData();
 
-    // Create certificate with API data
+    // Create certificate with data
     const { container, canvas } = await createCertificateContainer(courseData);
     const content = createContent(
       originalChildren,
@@ -328,10 +426,13 @@ export default async function decorate(block) {
       },
       initialDelay: CONFIG.CONFETTI.INITIAL_DELAY,
     });
-  } catch {
+  } catch (error) {
     // Show error message
+    // eslint-disable-next-line no-console
+    console.error('Error in decorate function:', error);
     const errorMessage = createErrorMessage();
     block.textContent = '';
     block.appendChild(errorMessage);
   }
+  decorateIcons(block);
 }

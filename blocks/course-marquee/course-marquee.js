@@ -1,6 +1,10 @@
 import { decorateIcons, getMetadata } from '../../scripts/lib-franklin.js';
 import { fetchLanguagePlaceholders, getPathDetails, htmlToElement } from '../../scripts/scripts.js';
 
+function getPreferredMetadata(tqMetaKey, locLegacyMetaKey, legacyMetaKey) {
+  return getMetadata(tqMetaKey) || getMetadata(locLegacyMetaKey) || getMetadata(legacyMetaKey);
+}
+
 export default async function decorate(block) {
   let placeholders = {};
   try {
@@ -26,8 +30,21 @@ export default async function decorate(block) {
 
   const courseName = getMetadata('og:title') || document.title;
 
-  const productName = getMetadata('coveo-solution') || '';
-  const experienceLevel = getMetadata('level') || '';
+  const coveosolutions = getMetadata('coveo-solution');
+  const productName =
+    getMetadata('tq-products-labels') ||
+    [
+      ...new Set(
+        coveosolutions.split(';').map((item) => {
+          const parts = item.split('|');
+          return parts.length > 1 ? parts[1].trim() : item.trim();
+        }),
+      ),
+    ].join(',');
+  const experienceLevel = getPreferredMetadata('tq-levels-labels', 'loc-level', 'level');
+  const role = getMetadata('role') || '';
+  const solution = getMetadata('solution') || '';
+  const courseLink = getMetadata('og:url') || window.location.href;
 
   // Function to create HTML for multiple values with proper spacing
   const createMultiValueHTML = (values) => {
@@ -45,7 +62,16 @@ export default async function decorate(block) {
 
     return uniqueValues.map((value) => `<span class="metadata-value-item">${value}</span>`).join('');
   };
-
+  const [, courseIdFromLink] = courseLink?.split(`/${lang}/`) || [];
+  const bookmarkTrackingInfo = {
+    destinationDomain: courseLink,
+    course: {
+      id: courseIdFromLink,
+      title: courseName,
+      solution: solution.split(',').filter(Boolean),
+      role,
+    },
+  };
   block.textContent = '';
 
   // Create metadata items HTML
@@ -111,9 +137,10 @@ export default async function decorate(block) {
         link: window.location.href,
         bookmarkConfig: {
           label: placeholders?.bookmarkThisCourse || 'Bookmark this Course',
-          icons: ['bookmark-white', 'bookmark-active'],
+          icons: ['bookmark-new', 'bookmark-active'],
         },
         copyConfig: false,
+        bookmarkTrackingInfo,
       });
       cardAction.decorate();
     }

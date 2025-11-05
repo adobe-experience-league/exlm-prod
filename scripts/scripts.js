@@ -166,6 +166,7 @@ export const isProfilePage = matchesAnyTheme(/^profile.*/);
 export const isBrowsePage = matchesAnyTheme(/^browse-.*/);
 export const isSignUpPage = matchesAnyTheme(/^signup.*/);
 export const isCourseStep = matchesAnyTheme(/course-step/);
+export const isCertificatePage = () => !!document.querySelector('.course-completion'); // Checking for presence of course-completion block
 
 /**
  * add a section for the left rail when on a browse page.
@@ -252,6 +253,20 @@ function addModuleNav(main) {
 }
 
 /**
+ * Add course breadcrumb block to course step pages.
+ * @param {HTMLElement} main
+ */
+function addCourseBreadcrumb(main) {
+  // Check if course-breadcrumb block already exists
+  if (!main.querySelector('.course-breadcrumb.block')) {
+    const courseBreadcrumbSection = document.createElement('div');
+    courseBreadcrumbSection.classList.add('course-breadcrumb-section');
+    courseBreadcrumbSection.append(buildBlock('course-breadcrumb', []));
+    main.prepend(courseBreadcrumbSection);
+  }
+}
+
+/**
  * Tabbed layout for Tab section
  * @param {HTMLElement} main
  */
@@ -305,21 +320,22 @@ function buildAutoBlocks(main, isFragment = false) {
       buildTabSection(main);
     }
     if (!isFragment) {
-      // if we are on a product browse page
+      // Determine page type and add appropriate blocks
       if (isBrowsePage) {
         addBrowseBreadCrumb(main);
         addBrowseRail(main);
-      }
-      if (isPerspectivePage) {
+      } else if (isPerspectivePage) {
         addMiniToc(main);
-      }
-      if (isProfilePage) {
+      } else if (isProfilePage) {
         addProfileRail(main);
-      }
-      // if we are on a course step page
-      if (isCourseStep) {
+      } else if (isCourseStep) {
+        // if we are on a course step page
         addModuleInfo(main);
+        addCourseBreadcrumb(main);
         addModuleNav(main);
+      } else if (isCertificatePage()) {
+        // if we are on a certificate page
+        addCourseBreadcrumb(main);
       }
     }
   } catch (error) {
@@ -815,6 +831,8 @@ export function getConfig() {
     communityTopicsUrl: isProd
       ? `https://experienceleaguecommunities.adobe.com//t5/custom/page/page-id/Community-TopicsPage?profile.language=${communityLocale}&topic=`
       : `https://experienceleaguecommunities-dev.adobe.com//t5/custom/page/page-id/Community-TopicsPage?profile.language=${communityLocale}&topic=`,
+    // MPC API Base
+    mpcApiBase: isProd ? `https://api.tv.adobe.com/videos` : `https://stage-api.tv.adobe.com/videos`,
   };
   return window.exlm.config;
 }
@@ -1288,7 +1306,7 @@ export function setMetadata(name, content) {
  * Update TQ Tags metadata directly in meta tags
  * @param {Document} document
  */
-export function updateTQTagsMetadata() {
+export function updateTQTagsForCoveo() {
   const keyMapping = {
     'tq-roles': 'role',
     'tq-levels': 'level',
@@ -1317,6 +1335,52 @@ export function updateTQTagsMetadata() {
       }
     } catch (e) {
       console.error(`Failed to parse metadata for ${originalName}:`, e, metaTag);
+    }
+  });
+}
+
+/**
+ * Update TQ Tags metadata
+ * @param {Document} document
+ */
+export function updateTQTagsMetadata() {
+  const keysToUpdate = [
+    'tq-roles',
+    'tq-levels',
+    'tq-products',
+    'tq-features',
+    'tq-subfeatures',
+    'tq-industries',
+    'tq-topics',
+  ];
+
+  keysToUpdate.forEach((key) => {
+    const metaTag = getMetadata(key);
+    if (!metaTag) return;
+
+    try {
+      const decoded = decodeHtmlEntities(metaTag);
+      const parsed = JSON.parse(decoded);
+
+      if (Array.isArray(parsed)) {
+        const updatedTags = parsed
+          .map((item) => (item.uri && item.label ? `${item.uri}|${item.label}` : null))
+          .filter(Boolean)
+          .join(', ');
+        if (updatedTags) {
+          setMetadata(`${key}`, updatedTags);
+          // Extract labels (the part after |) and join by comma
+          const labels = updatedTags
+            .split(',')
+            .map((tag) => tag.split('|')[1]?.trim())
+            .filter(Boolean)
+            .join(', ');
+
+          setMetadata(`${key}-labels`, labels);
+        }
+      }
+    } catch (e) {
+      console.error(`Failed to parse metadata for ${key}:`, e);
     }
   });
 }
@@ -1436,12 +1500,8 @@ async function loadPage() {
   // For AEM Author mode, decode the tags value
   if (window.hlx.aemRoot || window.location.href.includes('.html')) {
     decodeAemCqMetaTags();
-    const pagePath = window?.location.pathname;
-    if (pagePath.includes('/courses/') && !pagePath.includes('/courses/instructors')) {
-      updateTQTagsMetadata();
-    } else {
-      decodeAemPageMetaTags();
-    }
+    updateTQTagsMetadata();
+    decodeAemPageMetaTags();
   }
 
   const { suffix: currentPagePath, lang } = getPathDetails();

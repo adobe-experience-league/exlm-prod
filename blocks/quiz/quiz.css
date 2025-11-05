@@ -1,18 +1,6 @@
 @import '../question/question.css';
 
-.quiz .quiz-container {
-  max-width: 800px;
-  margin: var(--spectrum-spacing-400) auto;
-  padding: var(--spectrum-spacing-300);
-}
-
-.quiz .quiz-wrapper,
-.quiz .section > div {
-  margin: unset;
-}
-
 .quiz .quiz-description-container {
-  max-width: 728px;
   height: auto;
   margin: 0 auto 50px;
   box-sizing: border-box;
@@ -22,8 +10,11 @@
   font-weight: var(--font-weight-bold);
   font-size: var(--spectrum-font-size-800);
   line-height: var(--spectrum-line-height-xxl);
-  margin-top: var(--spectrum-spacing-600);
   margin-bottom: var(--spectrum-spacing-300);
+}
+
+.quiz .quiz-title h2 {
+  margin-top: 0;
 }
 
 .quiz .quiz-description {
@@ -73,10 +64,4 @@
   text-align: center;
   margin-left: 0;
   padding-left: 0;
-}
-
-@media (min-width: 900px) {
-  .quiz {
-    width: 728px;
-  }
 }

@@ -1,6 +1,7 @@
 import { decorateIcons } from '../../scripts/lib-franklin.js';
 import decorateCustomButtons from '../../scripts/utils/button-utils.js';
 import { fetchLanguagePlaceholders, htmlToElement } from '../../scripts/scripts.js';
+import { getCurrentStepInfo } from '../../scripts/courses/course-utils.js';
 
 /**
  * Decorate the quiz scorecard block
@@ -33,6 +34,10 @@ export default async function decorate(block) {
   if (block.classList.contains('fail')) {
     const cta1Container = cta1Div.querySelector('div');
     const cta2Container = cta2Div.querySelector('div');
+
+    // Add retake-quiz-button class
+    cta2Container.querySelector('a')?.classList.add('retake-quiz-button');
+
     ctaHTML = `
       <div class="quiz-scorecard-cta-container">
         ${decorateCustomButtons(cta1Container, cta2Container)}
@@ -62,4 +67,30 @@ export default async function decorate(block) {
   const scorecardElement = htmlToElement(scorecardHTML);
   block.appendChild(scorecardElement);
   decorateIcons(scorecardElement);
+
+  const retakeButton = scorecardElement.querySelector('.retake-quiz-button');
+  if (retakeButton) {
+    retakeButton.addEventListener('click', (e) => {
+      e.preventDefault();
+      window.location.reload();
+    });
+  }
+
+  // Add event listener for "Back to step one" button
+  const backToStepOneButton = scorecardElement.querySelector(
+    '.quiz-scorecard-cta-container a:not(.retake-quiz-button)',
+  );
+  if (!backToStepOneButton) return;
+
+  backToStepOneButton.addEventListener('click', async (e) => {
+    e.preventDefault();
+    try {
+      const stepInfo = await getCurrentStepInfo();
+      const firstStepUrl = stepInfo?.moduleSteps?.[0]?.url;
+      if (firstStepUrl) window.location.href = firstStepUrl;
+    } catch (error) {
+      // eslint-disable-next-line no-console
+      console.error('Error navigating to the first step:', error);
+    }
+  });
 }

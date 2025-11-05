@@ -1,14 +1,36 @@
 // Module utils
 
 /**
+ * Extracts courseId and moduleId from a URL path
+ * @param {string} [url] - The URL path to extract from. If not provided, uses current page URL
+ * @returns {Object} Object containing courseId and moduleId
+ *   - {string|null} courseId - The course identifier
+ *   - {string|null} moduleId - The module identifier (null if not found)
+ */
+export function extractCourseModuleIds(url = window.location.pathname) {
+  const segments = url.split('/').filter(Boolean);
+  const coursesIndex = segments.indexOf('courses');
+
+  if (coursesIndex === -1 || coursesIndex >= segments.length - 1) {
+    return { courseId: null, moduleId: null };
+  }
+
+  const courseId = `${segments[coursesIndex]}/${segments[coursesIndex + 1]}`;
+  const moduleSegment = segments[coursesIndex + 2];
+  const moduleId = moduleSegment ? `${courseId}/${moduleSegment}` : null;
+
+  return { courseId, moduleId };
+}
+
+/**
  * Extracts the module fragment URL from the current page path.
  * For a path like /{locale}/courses/{collection}/{fragment}/{step}/...,
  * returns /{locale}/courses/{collection}/{fragment}
  *
  * @returns {string|null} The module fragment URL or null if not found
  */
-export function getModuleFragmentUrl() {
-  const parts = window.location.pathname.split('/').filter(Boolean);
+export function getModuleFragmentUrl(url = window.location.pathname) {
+  const parts = url.split('/').filter(Boolean);
   // find "courses" in the path
   const idx = parts.indexOf('courses');
   if (idx > 0 && parts.length > idx + 2) {
@@ -27,7 +49,8 @@ export function getModuleFragmentUrl() {
  *                         uses the result of getModuleFragmentUrl()
  * @returns {Promise<Document|null>} Parsed HTML document or null if fetch fails
  */
-async function fetchModuleFragment(path = getModuleFragmentUrl()) {
+async function fetchModuleFragment(url = window.location.pathname) {
+  const path = getModuleFragmentUrl(url);
   if (!path) return null;
   const fragmentUrl = `${path}.plain.html`;
   const res = await fetch(fragmentUrl);
@@ -151,12 +174,12 @@ async function extractModuleMeta(fragment, placeholders) {
   // Add recap and quiz steps to allSteps
   if (moduleRecap) {
     allSteps.push({
-      name: placeholders['module-recap-step-name'] || 'Recap - Key Takeaways',
+      name: placeholders?.moduleRecapStepName || 'Recap - Key Takeaways',
       url: moduleRecap,
     });
   }
   if (moduleQuiz) {
-    allSteps.push({ name: placeholders['module-quiz-step-name'] || 'Module Quiz', url: moduleQuiz });
+    allSteps.push({ name: placeholders?.moduleQuizStepName || 'Module Quiz', url: moduleQuiz });
   }
 
   const totalSteps = allSteps.length;
@@ -238,7 +261,8 @@ export async function getCurrentStepInfo(placeholders = {}) {
  *   - {Array<{name: string, url: string}>} moduleSteps - Array of step objects
  *   - {number} totalSteps - Total number of steps in the track
  */
-export async function getModuleMeta(moduleFragmentUrl, placeholders = {}) {
+export async function getModuleMeta(url = window.location.pathname, placeholders = {}) {
+  const moduleFragmentUrl = getModuleFragmentUrl(url);
   if (!moduleFragmentUrl) return null;
   const storageKey = `module-meta:${moduleFragmentUrl}`;
   let meta = null;
@@ -277,8 +301,8 @@ export async function getModuleMeta(moduleFragmentUrl, placeholders = {}) {
  *
  * @returns {string|null} The course fragment URL or null if not found
  */
-export function getCourseFragmentUrl() {
-  const parts = window.location.pathname.split('/').filter(Boolean);
+export function getCourseFragmentUrl(url = window.location.pathname) {
+  const parts = url.split('/').filter(Boolean);
   const idx = parts.indexOf('courses');
   if (idx > 0 && parts.length > idx + 1) {
     const locale = parts[idx - 1];
@@ -294,7 +318,8 @@ export function getCourseFragmentUrl() {
  * @param {string} courseFragmentUrl - The course fragment URL to fetch
  * @returns {Promise<Document|null>} Parsed HTML document or null if fetch fails
  */
-export async function fetchCourseFragment(courseFragmentUrl) {
+export async function fetchCourseFragment(url = window.location.pathname) {
+  const courseFragmentUrl = getCourseFragmentUrl(url);
   if (!courseFragmentUrl) return null;
   const res = await fetch(courseFragmentUrl);
   if (!res.ok) {
@@ -308,7 +333,7 @@ export async function fetchCourseFragment(courseFragmentUrl) {
 /**
  * Extracts metadata from a course fragment DOM element.
  * Parses the fragment to extract course information including heading,
- * description, total time, role, solution, level and module URLs.
+ * description, total time, role, solution, level, course completion page and module URLs.
  *
  * @param {Document} fragment - Parsed HTML document containing course data
  * @returns {Promise<Object>} Course metadata object containing:
@@ -319,22 +344,28 @@ export async function fetchCourseFragment(courseFragmentUrl) {
  *   - {string} role - Course role
  *   - {string} solution - Course solution
  *   - {string} level - Course level
+ *   - {string} courseCompletionPage - URL to the course completion page
  */
 export async function extractCourseMeta(fragment) {
   if (!fragment) return {};
 
   const marqueeMeta = fragment.querySelector('.course-marquee');
-  const heading = marqueeMeta?.children[0]?.textContent?.trim() || '';
-  const description = marqueeMeta?.children[1]?.innerHTML || '';
   const courseBreakdownMeta = fragment.querySelector('.course-breakdown');
-  const totalTime = courseBreakdownMeta?.children[1]?.textContent?.trim() || '';
-  const modules =
-    courseBreakdownMeta?.children.length > 4
-      ? [...courseBreakdownMeta.children].slice(4).map((child) => child.querySelector('a')?.getAttribute('href') || '')
-      : [];
+
+  const [headingElement, descriptionElement] = marqueeMeta?.children || [];
+  const heading = headingElement?.textContent?.trim() || '';
+  const description = descriptionElement?.innerHTML || '';
+
+  const [, totalTimeElement, , , courseCompletionElement, ...moduleElements] = courseBreakdownMeta?.children || [];
+  const totalTime = totalTimeElement?.textContent?.trim() || '';
+  const courseCompletionPage = courseCompletionElement?.querySelector('a')?.getAttribute('href') || '';
+
+  const modules = moduleElements.map((child) => child.querySelector('a')?.getAttribute('href') || '');
+
   const role = fragment.querySelector('meta[name="role"]')?.content || '';
   const solution = fragment.querySelector('meta[name="solution"]')?.content || '';
   const level = fragment.querySelector('meta[name="level"]')?.content || '';
+
   return {
     heading,
     description,
@@ -343,6 +374,7 @@ export async function extractCourseMeta(fragment) {
     role,
     solution,
     level,
+    courseCompletionPage,
   };
 }
 
@@ -359,7 +391,8 @@ export async function extractCourseMeta(fragment) {
  *   - {Array<string>} modules - Array of module URLs
  *   - {string} url - The course fragment URL
  */
-export async function getCurrentCourseMeta(courseFragmentUrl = getCourseFragmentUrl()) {
+export async function getCurrentCourseMeta(url = window.location.pathname) {
+  const courseFragmentUrl = getCourseFragmentUrl(url);
   if (!courseFragmentUrl) return null;
   const storageKey = `course-meta:${courseFragmentUrl}`;
   let meta = null;
@@ -396,7 +429,7 @@ export async function getCurrentCourseMeta(courseFragmentUrl = getCourseFragment
  * Checks if the current step is the last step in the module.
  *
  * @param {Object} stepInfo - The step information object from getCurrentStepInfo()
- * @returns {boolean} True if current step is the last step, false otherwise
+ * @returns {Promise<boolean>} True if current step is the last step, false otherwise
  */
 export async function isLastStep() {
   const stepInfo = await getCurrentStepInfo();
@@ -409,14 +442,19 @@ export async function isLastStep() {
 }
 
 // Gets the URL of the first step of the next module.
-export async function getNextModuleFirstStep() {
-  const courseInfo = await getCurrentCourseMeta();
+/**
+ * Gets the URL of the first step of the next module.
+ *
+ * @returns {Promise<string|null>} The URL of the first step of the next module or null if not found
+ */
+export async function getNextModuleFirstStep(url = window.location.pathname) {
+  const courseInfo = await getCurrentCourseMeta(url);
   if (!courseInfo || !courseInfo.modules || !Array.isArray(courseInfo.modules) || courseInfo.modules.length === 0) {
     return null;
   }
 
   // Extract the current module path from the URL
-  const pathParts = window.location.pathname.split('/');
+  const pathParts = url.split('/');
   const currentModulePath = pathParts.length > 4 ? pathParts[4] : '';
 
   if (!currentModulePath) {
@@ -424,7 +462,7 @@ export async function getNextModuleFirstStep() {
   }
 
   // Find the current module index
-  const currentModuleIndex = courseInfo.modules.findIndex((url) => url.includes(currentModulePath));
+  const currentModuleIndex = courseInfo.modules.findIndex((moduleUrl) => moduleUrl.includes(currentModulePath));
 
   // If there's a next module, get its first step
   if (currentModuleIndex !== -1 && currentModuleIndex < courseInfo.modules.length - 1) {
@@ -439,4 +477,101 @@ export async function getNextModuleFirstStep() {
   }
 
   return null;
+}
+
+/*
+ * Fetches and caches the course index for a given language prefix
+ * Uses window-level caching to avoid multiple requests for the same data
+ * @param {string} prefix - Language prefix for the course index (default: 'en')
+ * @returns {Promise<Array>} Array of course index data
+ */
+export async function fetchCourseIndex(prefix = 'en') {
+  window.courseIndex = window.courseIndex || {};
+  const loaded = window.courseIndex[`${prefix}-loaded`];
+  if (!loaded) {
+    window.courseIndex[`${prefix}-loaded`] = new Promise((resolve, reject) => {
+      const url = `/${prefix}/course-index.json`;
+      fetch(url)
+        .then((resp) => {
+          if (resp.ok) {
+            return resp.json();
+          }
+          window.courseIndex[prefix] = [];
+          return {};
+        })
+        .then((json) => {
+          window.courseIndex[prefix] = json?.data ?? [];
+          resolve(json?.data ?? []);
+        })
+        .catch((error) => {
+          window.courseIndex[prefix] = [];
+          reject(error);
+        });
+    });
+  }
+  await window.courseIndex[`${prefix}-loaded`];
+  return window.courseIndex[prefix];
+}
+
+export function transformCourseMetaToCardModel({ model, placeholders }) {
+  const baseUrl = `${window.location.protocol}//${window.location.host}`;
+
+  let productArray = [];
+  if (model.coveoSolution) {
+    if (model.coveoSolution.includes(';')) {
+      const solutions = model.coveoSolution.split(';').map((s) => s.trim());
+      productArray = [...new Set(solutions)];
+    } else {
+      productArray = [model.coveoSolution];
+    }
+  }
+
+  return {
+    id: model.path?.split('/')?.pop() || '',
+    contentType: model.coveoContentType || 'Course',
+    badgeTitle: model.coveoContentType || 'Course',
+    product: productArray,
+    title: model.title,
+    description: model.description || '',
+    copyLink: baseUrl + model.path,
+    viewLink: baseUrl + model.path,
+    viewLinkText: placeholders?.browseCardCourseViewLabel || 'View course',
+    meta: {},
+  };
+}
+
+/**
+ * Gets the URL of the course completion page.
+ *
+ * @param {string} url - The URL path to extract courseId and moduleId from. If not provided, uses current page URL
+ * @returns {Promise<string|null>} The URL of the course completion page or null if not found
+ */
+export async function getCourseCompletionPageUrl(url = window.location.pathname) {
+  const courseInfo = await getCurrentCourseMeta(url);
+  if (!courseInfo || !courseInfo?.courseCompletionPage) {
+    return null;
+  }
+  return courseInfo.courseCompletionPage;
+}
+
+/**
+ * Checks if the current module is the last module of the course.
+ *
+ * @param {string} url - The URL path to extract courseId and moduleId from. If not provided, uses current page URL
+ * @returns {Promise<boolean>} True if current module is the last module of the course, false otherwise
+ */
+export async function isLastModuleOfCourse(url = window.location.pathname) {
+  const courseInfo = await getCurrentCourseMeta(url);
+  if (!courseInfo || !courseInfo.modules || !Array.isArray(courseInfo.modules) || courseInfo.modules.length === 0) {
+    return false;
+  }
+  const pathParts = url.split('/');
+  const currentModulePath = pathParts.length > 4 ? pathParts[4] : '';
+
+  if (!currentModulePath) {
+    return false;
+  }
+
+  const currentModuleIndex = courseInfo.modules.findIndex((moduleUrl) => moduleUrl.includes(currentModulePath));
+  return currentModuleIndex === courseInfo.modules.length - 1;
 }

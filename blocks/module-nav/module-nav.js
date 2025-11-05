@@ -1,6 +1,32 @@
-import { getCurrentStepInfo, isLastStep, getNextModuleFirstStep } from '../../scripts/utils/course-utils.js';
-import { fetchLanguagePlaceholders } from '../../scripts/scripts.js';
+import {
+  getCurrentStepInfo,
+  isLastStep,
+  getNextModuleFirstStep,
+  isLastModuleOfCourse,
+  getCourseCompletionPageUrl,
+  getCourseFragmentUrl,
+} from '../../scripts/courses/course-utils.js';
+import { fetchLanguagePlaceholders, getConfig } from '../../scripts/scripts.js';
 import { submitQuizHandler } from '../quiz/quiz.js';
+import { finishModule, completeCourse } from '../../scripts/courses/course-profile.js';
+
+let placeholders = {};
+try {
+  placeholders = await fetchLanguagePlaceholders();
+} catch (err) {
+  // eslint-disable-next-line no-console
+  console.error('Error fetching placeholders:', err);
+}
+
+// Helper function to update back button to point to course landing page
+async function updateBackButtonToCourseUrl(button, placeholdersObj) {
+  if (!button) return;
+  button.textContent = placeholdersObj?.backToCourseOverview || 'Back to Course Overview';
+  const courseUrl = await getCourseFragmentUrl();
+  if (courseUrl) {
+    button.href = courseUrl;
+  }
+}
 
 async function handleQuizNextButton(e) {
   e.preventDefault();
@@ -10,44 +36,63 @@ async function handleQuizNextButton(e) {
 
   // Call the quiz submission handler if it exists
   const handler = submitQuizHandler();
-  if (handler) {
-    const success = await handler();
+  if (!handler) return;
+  const isQuizPassed = await handler();
 
-    if (success) {
-      // Check if this is the last step in the module
-      if (await isLastStep()) {
-        // Get the first step of the next module
-        const nextModuleFirstStepUrl = await getNextModuleFirstStep();
-        if (nextModuleFirstStepUrl) {
-          e.target.href = nextModuleFirstStepUrl;
-        }
-      }
-    } else if (!success) {
-      // re-enable submit button after answering all questions
-      const inputs = document.querySelectorAll('.question input[type="checkbox"], .question input[type="radio"]');
-      inputs.forEach((input) => {
-        input.addEventListener(
-          'change',
-          () => {
-            e.target.classList.remove('disabled');
-          },
-          { once: true },
-        );
-      });
+  const backButton = document.querySelector('.module-nav-button.module-nav-back');
+  const nextButton = document.querySelector('.module-nav-button.module-nav-submit');
+
+  // Check if quiz-scorecard block is present (quiz has been successfully submitted)
+  const quizScorecard = document.querySelector('.quiz-scorecard');
+
+  if (quizScorecard) {
+    if (backButton) {
+      await updateBackButtonToCourseUrl(backButton, placeholders);
+    }
+    if (nextButton) {
+      nextButton.textContent = placeholders?.nextBtnLabel || 'Next';
     }
   }
-}
-export default async function decorate(block) {
-  let placeholders = {};
-  try {
-    placeholders = await fetchLanguagePlaceholders();
-  } catch (err) {
-    // eslint-disable-next-line no-console
-    console.error('Error fetching placeholders:', err);
+
+  if (!isQuizPassed) {
+    // re-enable submit button after answering all questions
+    const inputs = document.querySelectorAll('.question input[type="checkbox"], .question input[type="radio"]');
+    inputs.forEach((input) => {
+      input.addEventListener(
+        'change',
+        () => {
+          e.target.classList.remove('disabled');
+        },
+        { once: true },
+      );
+    });
+    return;
   }
 
-  const stepInfo = await getCurrentStepInfo(placeholders);
+  // Remove the event listener when quiz is passed
+  e.target.removeEventListener('click', handleQuizNextButton);
 
+  // Check if this is the last step in the module
+  if (!(await isLastStep())) return;
+
+  // Check if this is the last module of the course and complete the course
+  if (await isLastModuleOfCourse()) {
+    await completeCourse();
+    const url = await getCourseCompletionPageUrl();
+    if (url) e.target.href = url;
+  } else {
+    await finishModule();
+    const url = await getNextModuleFirstStep();
+    if (url) e.target.href = url;
+  }
+
+  if (nextButton) {
+    nextButton.classList.remove('disabled');
+  }
+}
+
+export default async function decorate(block) {
+  const stepInfo = await getCurrentStepInfo(placeholders);
   if (!stepInfo) return;
 
   // Clear block and add class
@@ -77,42 +122,78 @@ export default async function decorate(block) {
   }
 
   // Second link based on step type
-  const secondLink = document.createElement('a');
-  secondLink.className = 'button module-nav-button';
+  const nextLink = document.createElement('a');
+  nextLink.className = 'button module-nav-button';
 
   // Check if recap or quiz step - use root level properties
   const isRecap = stepInfo?.isRecap || false;
   const isQuiz = stepInfo?.isQuiz || false;
 
+  // Get environment config
+  const { isProd } = getConfig();
+
+  // Check if quiz should be skipped (already passed and not in production)
+  const skipQuiz = isQuiz && !isProd && sessionStorage.getItem('course.skipQuiz') === 'true';
+
+  // Function to set up the next button for regular navigation
+  const setupNextButton = () => {
+    nextLink.classList.add('module-nav-next');
+    nextLink.textContent = placeholders['course-next'] || 'Next';
+    nextLink.href = stepInfo.nextStep || '#';
+  };
+
   if (isRecap) {
     // Take Quiz link
-    secondLink.classList.add('module-nav-quiz');
-    secondLink.textContent = placeholders['course-take-quiz'] || 'Take Quiz';
-    secondLink.href = stepInfo.moduleQuiz || '#';
-  } else if (isQuiz) {
+    nextLink.classList.add('module-nav-quiz');
+    nextLink.textContent = placeholders['course-take-quiz'] || 'Take Quiz';
+    nextLink.href = stepInfo.moduleQuiz || '#';
+  } else if (isQuiz && !skipQuiz) {
     // Submit Answers link
-    secondLink.classList.add('module-nav-submit');
-    secondLink.textContent = placeholders['course-submit-answers'] || 'Submit Answers';
-    secondLink.href = stepInfo.nextStep || '#';
-    secondLink.addEventListener('click', handleQuizNextButton, { once: true });
+    nextLink.classList.add('module-nav-submit');
+    nextLink.textContent = placeholders['course-submit-answers'] || 'Submit Answers';
+    nextLink.href = stepInfo.nextStep || '#';
+    nextLink.addEventListener('click', handleQuizNextButton);
   } else {
-    // Next link
-    secondLink.classList.add('module-nav-next');
-    secondLink.textContent = placeholders['course-next'] || 'Next';
-    secondLink.href = stepInfo.nextStep || '#';
+    // Regular Next link (for normal steps or skipped quizzes)
+    setupNextButton();
+
+    // Update previous button text and href if this is a skipped quiz
+    if (isQuiz && skipQuiz) {
+      await updateBackButtonToCourseUrl(previousLink, placeholders);
+    }
   }
 
-  // Check if this is the last step
-  if (!isQuiz && (await isLastStep())) {
-    const nextModuleFirstStepUrl = await getNextModuleFirstStep();
-    if (nextModuleFirstStepUrl) {
-      secondLink.href = nextModuleFirstStepUrl;
+  // Check if this is the last step - maintaining the original condition exactly
+  if ((!isQuiz || skipQuiz) && (await isLastStep())) {
+    nextLink.classList.add('disabled');
+    if (await isLastModuleOfCourse()) {
+      await completeCourse();
+      const courseCompletionPageUrl = await getCourseCompletionPageUrl();
+      if (courseCompletionPageUrl) {
+        nextLink.href = courseCompletionPageUrl;
+      }
+    } else {
+      await finishModule();
+      const nextModuleFirstStepUrl = await getNextModuleFirstStep();
+      if (nextModuleFirstStepUrl) {
+        nextLink.href = nextModuleFirstStepUrl;
+      }
+    }
+    nextLink.classList.remove('disabled');
+  }
+
+  // Check if quiz-scorecard block is present on page load
+  const quizScorecard = document.querySelector('.quiz-scorecard');
+  if (quizScorecard && isQuiz) {
+    await updateBackButtonToCourseUrl(previousLink, placeholders);
+    if (nextLink.classList.contains('module-nav-submit')) {
+      nextLink.textContent = placeholders?.nextBtnLabel || 'Next';
     }
   }
 
   // Add links to container
   container.appendChild(previousLink);
-  container.appendChild(secondLink);
+  container.appendChild(nextLink);
 
   // Add to block
   block.appendChild(container);

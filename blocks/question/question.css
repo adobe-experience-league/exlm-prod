@@ -3,7 +3,6 @@
   padding: var(--spectrum-spacing-400);
   border-radius: 16px;
   border: 1px solid var(--non-spectrum-pale-grey-dark);
-  max-width: 728px;
   height: auto;
   min-height: 360px;
   margin: 0 auto;
@@ -59,8 +58,9 @@
 
 .question .answer-input {
   margin: 0;
-  width: 15px; /* Safari answers option fix */
+  width: 15px;
   height: 15px;
+  min-width: 15px;
   margin-right: 0.75rem;
   display: inline-block;
   vertical-align: middle;
