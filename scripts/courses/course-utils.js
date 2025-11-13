@@ -86,7 +86,7 @@ function getStepMeta(allSteps, moduleRecap, moduleQuiz) {
   let currentIdx = -1;
 
   for (let i = 0; i < allSteps.length; i += 1) {
-    if (allSteps[i] && currentPath.startsWith(allSteps[i].url)) {
+    if (allSteps[i] && currentPath === allSteps[i].url) {
       currentStep = i + 1; // 1-based index
       currentIdx = i;
       break;
@@ -352,8 +352,7 @@ export async function extractCourseMeta(fragment) {
   const marqueeMeta = fragment.querySelector('.course-marquee');
   const courseBreakdownMeta = fragment.querySelector('.course-breakdown');
 
-  const [headingElement, descriptionElement] = marqueeMeta?.children || [];
-  const heading = headingElement?.textContent?.trim() || '';
+  const descriptionElement = marqueeMeta?.children?.[1];
   const description = descriptionElement?.innerHTML || '';
 
   const [, totalTimeElement, , , courseCompletionElement, ...moduleElements] = courseBreakdownMeta?.children || [];
@@ -362,6 +361,7 @@ export async function extractCourseMeta(fragment) {
 
   const modules = moduleElements.map((child) => child.querySelector('a')?.getAttribute('href') || '');
 
+  const heading = fragment.querySelector('meta[property="og:title"]')?.content || '';
   const role = fragment.querySelector('meta[name="role"]')?.content || '';
   const solution = fragment.querySelector('meta[name="solution"]')?.content || '';
   const level = fragment.querySelector('meta[name="level"]')?.content || '';
@@ -536,6 +536,9 @@ export function transformCourseMetaToCardModel({ model, placeholders }) {
     copyLink: baseUrl + model.path,
     viewLink: baseUrl + model.path,
     viewLinkText: placeholders?.browseCardCourseViewLabel || 'View course',
+    el_course_duration: model.totalTime || '',
+    el_course_module_count: model.modules?.length?.toString() || '',
+    el_level: model.level || '',
     meta: {},
   };
 }

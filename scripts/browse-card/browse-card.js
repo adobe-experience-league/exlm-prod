@@ -1,3 +1,4 @@
+/* eslint-disable camelcase, no-unused-vars */
 import { decorateIcons, loadCSS } from '../lib-franklin.js';
 import { createTag, htmlToElement, fetchLanguagePlaceholders, getPathDetails } from '../scripts.js';
 import {
@@ -7,6 +8,7 @@ import {
   COURSE_STATUS,
 } from './browse-cards-constants.js';
 import { sendCoveoClickEvent } from '../coveo-analytics.js';
+import { pushBrowseCardClickEvent } from '../analytics/lib-analytics.js';
 import UserActions from '../user-actions/user-actions.js';
 import { CONTENT_TYPES } from '../data-service/coveo/coveo-exl-pipeline-constants.js';
 
@@ -201,6 +203,57 @@ const buildCourseDurationContent = ({ inProgressStatus, inProgressText, cardCont
   cardContent.appendChild(titleElement);
 };
 
+const buildCourseInfoContent = ({ el_course_duration, el_level, cardContent }) => {
+  if (!el_course_duration && !el_level) return;
+
+  const levelText = el_level ? String(el_level)?.split(',')?.filter(Boolean)?.join(', ')?.toUpperCase() : '';
+  const durationText = el_course_duration ? String(el_course_duration)?.toUpperCase() : '';
+  const separator = levelText && durationText ? ' | ' : '';
+  const levelDurationText = `${levelText}${separator}${durationText}`;
+
+  const courseInfoElement = createTag('div', { class: 'browse-card-course-info' });
+  courseInfoElement.appendChild(createTag('p', { class: 'course-info-level-duration' }, levelDurationText));
+  cardContent.appendChild(courseInfoElement);
+};
+
+const buildCourseStatusContent = ({ meta, el_course_module_count, cardContent }) => {
+  const courseStatus = meta?.courseInfo?.courseStatus;
+  if (!courseStatus) return;
+
+  const statusLabel =
+    {
+      [COURSE_STATUS.NOT_STARTED]: placeholders?.courseStatusNotStarted || 'Not Started',
+      [COURSE_STATUS.IN_PROGRESS]: placeholders?.courseStatusInProgress || 'In Progress',
+      [COURSE_STATUS.COMPLETED]: placeholders?.courseStatusCompleted || 'Completed',
+    }[courseStatus] || '';
+
+  if (!statusLabel) return;
+
+  const statusRow = createTag('div', { class: 'browse-card-status-row' });
+
+  // Status indicator
+  const statusIndicator = createTag('div', { class: 'browse-card-status-indicator' });
+  statusIndicator.innerHTML = `<span class="status-badge status-${courseStatus}"></span><span class="status-text">${statusLabel}</span>`;
+  statusRow.appendChild(statusIndicator);
+
+  if (el_course_module_count) {
+    let completedModules = 0;
+    if (courseStatus === COURSE_STATUS.COMPLETED) {
+      completedModules = parseInt(el_course_module_count, 10);
+    } else if (courseStatus === COURSE_STATUS.IN_PROGRESS && meta.courseInfo.profileCourse?.modules) {
+      completedModules = meta.courseInfo.profileCourse.modules.filter((module) => module.finishedAt).length;
+    }
+
+    const moduleCountText = placeholders.courseModuleCompletedCount
+      ? placeholders?.courseModuleCompletedCount?.replace('{}', completedModules).replace('{}', el_course_module_count)
+      : `${completedModules} of ${el_course_module_count} Complete`;
+
+    statusRow.appendChild(createTag('div', { class: 'browse-card-module-count' }, moduleCountText));
+  }
+
+  cardContent.appendChild(statusRow);
+};
+
 const buildCardCtaContent = ({ cardFooter, contentType, viewLinkText, viewLink }) => {
   if (viewLinkText) {
     let icon = null;
@@ -262,22 +315,16 @@ const buildCardContent = async (card, model) => {
     cardContent.appendChild(descriptionElement);
   }
 
-  if (contentType === CONTENT_TYPES.COURSE.MAPPING_KEY && meta?.courseInfo?.courseStatus) {
-    // Map course status to localized label
-    const statusMapping = {
-      [COURSE_STATUS.NOT_STARTED]: placeholders.courseStatusNotStarted || 'Not Started',
-      [COURSE_STATUS.IN_PROGRESS]: placeholders.courseStatusInProgress || 'In Progress',
-      [COURSE_STATUS.COMPLETED]: placeholders.courseStatusCompleted || 'Completed',
-    };
-
-    const courseStatusLabel = statusMapping[meta.courseInfo.courseStatus] || '';
-
-    if (courseStatusLabel) {
-      const cardMeta = document.createElement('div');
-      cardMeta.classList.add('browse-card-meta-info', 'course-status-meta');
-      cardMeta.innerHTML = `<span class="status-badge status-${meta.courseInfo.courseStatus}"></span><span class="status-text">${courseStatusLabel}</span>`;
-      cardContent.appendChild(cardMeta);
-    }
+  if (
+    contentType === CONTENT_TYPES.COURSE.MAPPING_KEY ||
+    contentType === RECOMMENDED_COURSES_CONSTANTS.IN_PROGRESS.MAPPING_KEY
+  ) {
+    // Use the new buildCourseStatusContent function to display status and module count
+    buildCourseStatusContent({
+      meta,
+      el_course_module_count: model.el_course_module_count,
+      cardContent,
+    });
   }
 
   if (
@@ -333,17 +380,22 @@ const buildCardContent = async (card, model) => {
 
   const cardOptions = document.createElement('div');
   cardOptions.classList.add('browse-card-options');
-  let bookmarkTrackingInfo;
+  let trackingInfo;
   if (contentType === CONTENT_TYPES.COURSE.MAPPING_KEY) {
     const lang = document.querySelector('html').lang || 'en';
     const [, courseId] = model.viewLink?.split(`/${lang}/`) || [];
-    bookmarkTrackingInfo = {
+
+    const solution = model?.product?.length ? model?.product[0] : '';
+    const fullSolution = model?.product?.length ? model?.product?.join(',') : '';
+
+    trackingInfo = {
       destinationDomain: model.viewLink,
       course: {
         id: courseId || model.id,
         title: model.title,
-        solution: model.product,
-        role: model.role,
+        solution,
+        fullSolution,
+        role: model.role || '',
       },
     };
   }
@@ -355,7 +407,7 @@ const buildCardContent = async (card, model) => {
     link: copyLink,
     bookmarkConfig: !bookmarkExclusionContentypes.includes(contentType),
     copyConfig: failedToLoad ? false : undefined,
-    bookmarkTrackingInfo,
+    trackingInfo,
   });
 
   cardAction.decorate();
@@ -590,6 +642,18 @@ export async function buildCard(container, element, model) {
     cardContent.appendChild(titleElement);
   }
   await loadCSS(`${window.hlx.codeBasePath}/scripts/browse-card/browse-card.css`);
+
+  // For course content type, add level and duration info right after the title
+  if (type === CONTENT_TYPES.COURSE.MAPPING_KEY.toLowerCase()) {
+    buildCourseInfoContent({
+      el_course_duration: model.el_course_duration,
+      el_course_module_count: model.el_course_module_count,
+      el_level: model.el_level,
+      cardContent,
+      meta: model.meta,
+    });
+  }
+
   await buildCardContent(card, model);
 
   if (isVideoClip) {
@@ -638,6 +702,60 @@ export async function buildCard(container, element, model) {
   } else {
     element.appendChild(card);
   }
+
+  // DataLayer - Browse Cards
+
+  let cardHeader = '';
+  const currentBlock = card.closest('.block');
+  const headerEl = currentBlock?.querySelector(
+    '.browse-cards-block-title, .rec-block-header, .inprogress-courses-header-wrapper',
+  );
+  if (headerEl) {
+    const cloned = headerEl.cloneNode(true);
+    // Remove any PII or masked spans
+    cloned.querySelectorAll('[data-cs-mask]').forEach((el) => el.remove());
+    // Get cleaned text
+    cardHeader = cloned.innerText.trim();
+  }
+
+  cardHeader = cardHeader || currentBlock?.getAttribute('data-block-name')?.trim() || '';
+
+  let cardPosition = '';
+  if (element?.parentElement?.children) {
+    const siblings = Array.from(element.parentElement.children);
+    cardPosition = String(siblings.indexOf(element) + 1);
+  }
+
+  // DataLayer - Browse card click event
+  element.querySelector('a:not(.browse-card-options)')?.addEventListener(
+    'click',
+    () => {
+      pushBrowseCardClickEvent('browseCardClicked', model, cardHeader, cardPosition);
+    },
+    { once: true },
+  );
+
+  // DataLayer - Browse card click event for Bookmark
+  element.querySelector('.browse-card-options .user-actions .bookmark')?.addEventListener(
+    'click',
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pushBrowseCardClickEvent('bookmarkLinkBrowseCard', model, cardHeader, cardPosition);
+    },
+    { once: true },
+  );
+
+  // DataLayer - Browse card click event for Copy Link
+  element.querySelector('.browse-card-options .user-actions .copy-link')?.addEventListener(
+    'click',
+    (e) => {
+      e.preventDefault();
+      e.stopPropagation();
+      pushBrowseCardClickEvent('copyLinkBrowseCard', model, cardHeader, cardPosition);
+    },
+    { once: true },
+  );
 
   element.querySelector('a').addEventListener(
     'click',

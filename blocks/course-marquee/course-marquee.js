@@ -32,7 +32,6 @@ export default async function decorate(block) {
 
   const coveosolutions = getMetadata('coveo-solution');
   const productName =
-    getMetadata('tq-products-labels') ||
     [
       ...new Set(
         coveosolutions.split(';').map((item) => {
@@ -40,35 +39,23 @@ export default async function decorate(block) {
           return parts.length > 1 ? parts[1].trim() : item.trim();
         }),
       ),
-    ].join(',');
-  const experienceLevel = getPreferredMetadata('tq-levels-labels', 'loc-level', 'level');
+    ].join(', ') || getMetadata('tq-products-labels');
+  const experienceLevel = getPreferredMetadata('loc-level', 'level', 'tq-levels-labels')
+    .split(',')
+    .map((item) => item.trim())
+    .join(', ');
   const role = getMetadata('role') || '';
   const solution = getMetadata('solution') || '';
   const courseLink = getMetadata('og:url') || window.location.href;
 
-  // Function to create HTML for multiple values with proper spacing
-  const createMultiValueHTML = (values) => {
-    if (!values) return '';
-
-    // Split by semicolons or commas, trim each value, and remove duplicates
-    const uniqueValues = [
-      ...new Set(
-        values
-          .split(/[;,]/)
-          .map((value) => value.trim())
-          .filter(Boolean),
-      ),
-    ];
-
-    return uniqueValues.map((value) => `<span class="metadata-value-item">${value}</span>`).join('');
-  };
   const [, courseIdFromLink] = courseLink?.split(`/${lang}/`) || [];
-  const bookmarkTrackingInfo = {
+  const trackingInfo = {
     destinationDomain: courseLink,
     course: {
       id: courseIdFromLink,
       title: courseName,
-      solution: solution.split(',').filter(Boolean),
+      solution: solution.split(',')[0].trim() || '',
+      fullSolution: solution || '',
       role,
     },
   };
@@ -76,11 +63,12 @@ export default async function decorate(block) {
 
   // Create metadata items HTML
   let metadataItemsHTML = '';
+
   if (productName) {
     metadataItemsHTML += `
       <div class="metadata-item">
         <span class="metadata-label">${placeholders?.courseProductLabel || 'Product'}:</span>
-        <div class="metadata-value">${createMultiValueHTML(productName)}</div>
+        <span class="metadata-value">${productName}</span>
       </div>
     `;
   }
@@ -93,7 +81,7 @@ export default async function decorate(block) {
     metadataItemsHTML += `
       <div class="metadata-item">
         <span class="metadata-label">${placeholders?.courseExperienceLevelLabel || 'Experience level'}:</span>
-        <div class="metadata-value">${createMultiValueHTML(experienceLevel)}</div>
+        <span class="metadata-value">${experienceLevel}</span>
       </div>
     `;
   }
@@ -126,8 +114,7 @@ export default async function decorate(block) {
   const bookmarkContainer = block.querySelector('.course-marquee-bookmark');
 
   // Add UserActions for bookmark functionality
-  window.addEventListener('delayed-load', async () => {
-    const { default: UserActions } = await import('../../scripts/user-actions/user-actions.js');
+  import('../../scripts/user-actions/user-actions.js').then(({ default: UserActions }) => {
     if (UserActions) {
       const { pathname } = window.location;
       const cardAction = UserActions({
@@ -140,7 +127,7 @@ export default async function decorate(block) {
           icons: ['bookmark-new', 'bookmark-active'],
         },
         copyConfig: false,
-        bookmarkTrackingInfo,
+        trackingInfo,
       });
       cardAction.decorate();
     }
