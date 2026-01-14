@@ -702,7 +702,7 @@ export function getConfig() {
       authorUrl: 'author-p122525-e1219192.adobeaemcloud.com',
       hlxPreview: /^([a-z0-9-]+)--exlm-stage--adobe-experience-league.(hlx|aem).page$/,
       hlxLive: /^([a-z0-9-]+)--exlm-stage--adobe-experience-league.(hlx|aem).live$/,
-      community: 'experienceleaguecommunities-dev.adobe.com',
+      community: 'experienceleaguecommunities-beta.adobe.com',
     },
     {
       env: 'DEV',
@@ -710,7 +710,7 @@ export function getConfig() {
       authorUrl: 'author-p122525-e1200861.adobeaemcloud.com',
       hlxPreview: /^([a-z0-9-]+)--exlm--adobe-experience-league.(hlx|aem).page$/,
       hlxLive: /^([a-z0-9-]+)--exlm--adobe-experience-league.(hlx|aem).live$/,
-      community: 'experienceleaguecommunities-dev.adobe.com',
+      community: 'experienceleaguecommunities-beta.adobe.com',
     },
   ];
 
@@ -755,15 +755,23 @@ export function getConfig() {
   );
   const cdnHost = currentEnv?.cdn || defaultEnv.cdn;
   const communityHost = currentEnv?.community || defaultEnv.community;
-  const cdnOrigin = `https://${cdnHost}`;
+  let cdnOrigin = `https://${cdnHost}`;
   const lang = document.querySelector('html').lang || 'en';
   // Locale param for Community page URL
   const communityLocale = communityLangsMap.get(lang) || 'en';
   // Lang param for Adobe account URL
   const adobeAccountLang = adobeAccountLangsMap.get(lang) || 'en';
   const prodAssetsCdnOrigin = 'https://cdn.experienceleague.adobe.com';
-  const isProd = currentEnv?.env === 'PROD' || currentEnv?.authorUrl === 'author-p122525-e1219150.adobeaemcloud.com';
+  let isProd = currentEnv?.env === 'PROD' || currentEnv?.authorUrl === 'author-p122525-e1219150.adobeaemcloud.com';
   const isStage = currentEnv?.env === 'STAGE' || currentEnv?.authorUrl === 'author-p122525-e1219192.adobeaemcloud.com';
+  // EXLM-4452 - Temporary solution to update the IMS configuration to Prod for Premium Learning site in the Dev environment.
+  const urlParams = new URLSearchParams(window.location.search);
+  const isImsProd = !isProd && (urlParams?.get('ims') === 'prod' || sessionStorage.getItem('alm_access_token'));
+
+  if (isImsProd) {
+    isProd = true;
+    cdnOrigin = `https://experienceleague.adobe.com`;
+  }
   const ppsOrigin = isProd ? 'https://pps.adobe.io' : 'https://pps-stage.adobe.io';
   const ims = {
     client_id: 'ExperienceLeague',
@@ -795,8 +803,12 @@ export function getConfig() {
     cookieConsentName,
     targetCriteriaIds,
     quizPassingCriteria: 0.65, // 65% passing criteria for quizzes
-    khorosProfileUrl: `${cdnOrigin}/api/action/khoros/profile-menu-list`,
-    khorosProfileDetailsUrl: `${cdnOrigin}/api/action/khoros/profile-details`,
+    khorosProfileUrl: isProd
+      ? `${cdnOrigin}/api/action/khoros/profile-menu-list`
+      : `${cdnOrigin}/api/action/khoros/profile-menu-list?platform=gainsight`,
+    khorosProfileDetailsUrl: isProd
+      ? `${cdnOrigin}/api/action/khoros/profile-details`
+      : `${cdnOrigin}/api/action/khoros/profile-details?platform=gainsight`,
     profileUrl: `${cdnOrigin}/api/profile?lang=${lang}`,
     JWTTokenUrl: `${cdnOrigin}/api/token?lang=${lang}`,
     coveoTokenUrl: `${cdnOrigin}/api/action/coveo-token?lang=${lang}`,
@@ -825,13 +837,13 @@ export function getConfig() {
     // Community Account URL
     communityAccountURL: isProd
       ? `https://experienceleaguecommunities.adobe.com/?profile.language=${communityLocale}`
-      : `https://experienceleaguecommunities-dev.adobe.com/?profile.language=${communityLocale}`,
+      : `https://experienceleaguecommunities-beta.adobe.com/?profile.language=${communityLocale}`,
     interestsUrl: `${cdnOrigin}/api/interests?page_size=200&sort=Order`,
     // Param for localized Community Profile URL
     localizedCommunityProfileParam: `?profile.language=${communityLocale}`,
     communityTopicsUrl: isProd
       ? `https://experienceleaguecommunities.adobe.com//t5/custom/page/page-id/Community-TopicsPage?profile.language=${communityLocale}&topic=`
-      : `https://experienceleaguecommunities-dev.adobe.com//t5/custom/page/page-id/Community-TopicsPage?profile.language=${communityLocale}&topic=`,
+      : `https://experienceleaguecommunities-beta.adobe.com//t5/custom/page/page-id/Community-TopicsPage?profile.language=${communityLocale}&topic=`,
     // MPC API Base
     mpcApiBase: `https://api.tv.adobe.com/videos`,
     // Events Page URL
@@ -947,9 +959,26 @@ const loadMartech = async (headerPromise, footerPromise) => {
     async: true,
   });
 
+  const footerRenderPromise = footerPromise.then(
+    () =>
+      new Promise((resolve) => {
+        if (document.querySelector('[href="#onetrust"]')) {
+          // Element exists - resolve immediately.
+          resolve();
+          return;
+        }
+
+        // Otherwise wait for footer-ready event
+        const handler = () => {
+          document.removeEventListener('footer-ready', handler);
+          resolve();
+        };
+        document.addEventListener('footer-ready', handler);
+      }),
+  );
+
   // footer and one trust loaded, add event listener to open one trust popup,
-  // footer and one trust loaded, add event listener to open one trust popup,
-  Promise.all([footerPromise, oneTrustPromise]).then(() => {
+  Promise.all([footerRenderPromise, oneTrustPromise]).then(() => {
     document.querySelector('[href="#onetrust"]').addEventListener('click', (e) => {
       e.preventDefault();
       window.adobePrivacy.showConsentPopup();
@@ -1036,6 +1065,36 @@ export function createTag(tag, attributes, html) {
 }
 
 /**
+ * Enables image enlargement functionality for all picture elements on the page.
+ * Sets up click event listeners that load the image in a modal overlay.
+ */
+let imageModalLoader;
+
+async function loadImageModal() {
+  if (!imageModalLoader) {
+    imageModalLoader = Promise.all([
+      loadCSS(`${window.hlx.codeBasePath}/styles/image-modal.css`),
+      import('./image-modal.js'),
+    ]);
+  }
+  return imageModalLoader;
+}
+
+export function openImageModal() {
+  document.querySelectorAll('picture').forEach((picture) => {
+    picture?.setAttribute('modal', 'regular');
+
+    picture?.addEventListener('click', async () => {
+      const img = picture?.querySelector('img');
+      if (!img) return;
+
+      const [, mod] = await loadImageModal();
+      mod.default(img);
+    });
+  });
+}
+
+/**
  * Loads everything that happens a lot later,
  * without impacting the user experience.
  */
@@ -1062,6 +1121,7 @@ export async function loadArticles() {
   if (isPerspectivePage) {
     loadCSS(`${window.hlx.codeBasePath}/scripts/articles/articles.css`);
     loadDefaultModule('./articles/articles.js');
+    openImageModal();
   }
 }
 
