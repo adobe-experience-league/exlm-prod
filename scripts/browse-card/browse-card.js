@@ -725,9 +725,14 @@ export async function buildCard(element, model) {
       e.preventDefault();
       e.stopPropagation();
 
+      // Get card header and position for tracking
+      const { cardHeader, cardPosition } = getCardHeaderAndPosition(card, element);
+
       getVideoClipModal().then(async ({ BrowseCardVideoClipModal }) => {
         const modal = await BrowseCardVideoClipModal.create({
           model,
+          cardHeader,
+          cardPosition,
         });
         modal.open();
       });
@@ -766,7 +771,11 @@ export async function buildCard(element, model) {
   // Browse card click event handler
   element.querySelector('a')?.addEventListener('click', (e) => {
     const { cardHeader, cardPosition } = getCardHeaderAndPosition(card, element);
+    const shouldOpenInNewTab = element.closest('.section')?.getAttribute('data-new-tab') === 'true';
 
+    if (shouldOpenInNewTab) {
+      element.querySelector('a')?.setAttribute('target', '_blank');
+    }
     const cardOptions = card.querySelector('.browse-card-options');
     if (cardOptions) {
       card.dataset.cardHeader = cardHeader || '';

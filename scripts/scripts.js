@@ -21,6 +21,7 @@ import {
   loadBlock,
 } from './lib-franklin.js';
 import { initiateCoveoAtomicSearch } from './load-atomic-search-scripts.js';
+import isFeatureEnabled from './utils/feature-flag-utils.js';
 
 /**
  * please do not import any other modules here, as this file is used in the critical path.
@@ -417,6 +418,29 @@ export const decorateLinks = (block) => {
 };
 
 /**
+ * Decorates links within sections marked with data-new-tab="true" to open in new tab
+ * @param {HTMLElement} main - The main container element
+ */
+export const decorateLinksWithinSection = (main) => {
+  const newTabSections = main.querySelectorAll('.section[data-new-tab="true"]');
+  if (newTabSections.length === 0) return;
+
+  newTabSections?.forEach((section) => {
+    const links = section.querySelectorAll('a');
+
+    links?.forEach((link) => {
+      const href = link.getAttribute('href');
+      if (href && !href.startsWith('#') && !link.hasAttribute('target')) {
+        link.setAttribute('target', '_blank');
+        if (link.hostname !== window.location.hostname) {
+          link.setAttribute('rel', 'noopener noreferrer');
+        }
+      }
+    });
+  });
+};
+
+/**
  * see: https://github.com/adobe-experience-league/exlm-converter/pull/208
  * @param {HTMLElement} main
  */
@@ -623,15 +647,20 @@ export async function waitForLCPonMain(lcpBlocks) {
   document.body.style.display = null;
   const lcpCandidate = document.querySelector('main img');
   await new Promise((resolve) => {
-    if (lcpCandidate && lcpCandidate.src === 'about:error') {
-      resolve(); // error loading image
-    } else if (lcpCandidate && !lcpCandidate.complete) {
-      lcpCandidate.setAttribute('loading', 'eager');
-      lcpCandidate.addEventListener('load', resolve);
-      lcpCandidate.addEventListener('error', resolve);
-    } else {
+    if (!lcpCandidate || (lcpCandidate.complete && lcpCandidate.src === 'about:error')) {
       resolve();
     }
+
+    lcpCandidate.setAttribute('loading', 'eager');
+
+    // Firefox-safe path
+    if (lcpCandidate.decode) {
+      lcpCandidate.decode().then(resolve).catch(resolve); // decode rejects on error
+      return;
+    }
+
+    lcpCandidate.addEventListener('load', resolve, { once: true });
+    lcpCandidate.addEventListener('error', resolve, { once: true });
   });
 }
 
@@ -653,6 +682,7 @@ export function decorateMain(main, isFragment = false) {
   decorateSections(main);
   decorateBlocks(main);
   buildSectionBasedAutoBlocks(main);
+  decorateLinksWithinSection(main);
 }
 
 /**
@@ -926,7 +956,7 @@ const loadMartech = async (headerPromise, footerPromise) => {
   // eslint-disable-next-line import/no-cycle
   const libAnalyticsPromise = import('./analytics/lib-analytics.js');
   libAnalyticsPromise.then(async (libAnalyticsModule) => {
-    const { pushPageDataLayer, pushLinkClick } = libAnalyticsModule;
+    const { pushPageDataLayer, pushLinkClick, setupComponentImpressions } = libAnalyticsModule;
     const { lang } = getPathDetails();
 
     try {
@@ -938,6 +968,11 @@ const loadMartech = async (headerPromise, footerPromise) => {
       // eslint-disable-next-line no-console
       console.error('Error getting pageLoadModel:', e);
     }
+
+    if (isFeatureEnabled('isComponentImpressionEnabled')) {
+      setupComponentImpressions();
+    }
+
     Promise.allSettled([headerPromise, footerPromise]).then(() => {
       const linkClicked = document.querySelectorAll('a,.view-more-less span, .language-selector-popover span');
       const clickHandler = (e) => {
@@ -1013,6 +1048,7 @@ async function loadDefaultModule(jsPath) {
  * Loads everything that doesn't need to be delayed.
  * @param {Element} doc The container element
  */
+
 async function loadLazy(doc) {
   const main = doc.querySelector('main');
   const preMain = doc.body.querySelector(':scope > aside');
