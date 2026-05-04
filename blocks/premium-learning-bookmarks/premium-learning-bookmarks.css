@@ -1,0 +1,151 @@
+.premium-learning-bookmarks.pl-bookmarks-empty,
+.premium-learning-bookmarks-wrapper:has(.premium-learning-bookmarks.pl-bookmarks-empty),
+.section.premium-learning-section:has(
+    > .premium-learning-bookmarks-wrapper:only-child > .premium-learning-bookmarks.pl-bookmarks-empty
+  ) {
+  display: none;
+}
+
+.premium-learning-bookmarks .premium-learning-bookmarks-content {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(318px, 1fr));
+  place-items: center;
+  align-items: stretch;
+  gap: 16px;
+  padding-bottom: 32px;
+}
+
+.premium-learning-bookmarks-header {
+  padding-bottom: 18px;
+  margin-bottom: 48px;
+  border-bottom: 1px solid var(--spectrum-gray-300);
+}
+
+.premium-learning-bookmarks-content .premium-learning-bookmarks-card,
+.premium-learning-bookmarks-content .premium-learning-bookmarks-card .browse-card {
+  width: 318px;
+}
+
+body.profile
+  .premium-learning-bookmarks-wrapper
+  .premium-learning-bookmarks
+  .premium-learning-bookmarks-header
+  > *:first-child {
+  margin: 0;
+}
+
+body.profile .section:not(.profile-rail-section) > div.premium-learning-bookmarks-wrapper {
+  border: none;
+}
+
+body.profile:not(.profile-home-page)
+  .section:not(.profile-rail-section, .sign-up-flow-section)
+  > div.premium-learning-bookmarks-wrapper {
+  border-top: none;
+}
+
+@media (min-width: 600px) {
+  .premium-learning-bookmarks .premium-learning-bookmarks-content {
+    gap: 32px;
+  }
+
+  .premium-learning-bookmarks-header {
+    padding-bottom: 26px;
+    margin-bottom: 32px;
+  }
+
+  .premium-learning-bookmarks .browse-card-shimmer {
+    overflow-x: hidden;
+  }
+
+  .premium-learning-bookmarks .browse-card-shimmer-wrapper {
+    margin: 0;
+    border: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .premium-learning-bookmarks .premium-learning-bookmarks-content {
+    grid-template-columns: repeat(auto-fit, minmax(256px, 1fr));
+    place-items: center;
+    align-items: stretch;
+  }
+
+  .premium-learning-bookmarks-content .premium-learning-bookmarks-card,
+  .premium-learning-bookmarks .browse-card-shimmer-wrapper,
+  .premium-learning-bookmarks-content .premium-learning-bookmarks-card .browse-card {
+    width: 256px;
+  }
+}
+
+/* Pagination styles */
+.premium-learning-bookmarks-pagination {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 16px;
+}
+
+.premium-learning-bookmarks-pagination .nav-arrow {
+  position: relative;
+  background: transparent;
+  outline: none;
+  height: 36px;
+  width: 36px;
+  padding: 0;
+  margin: 0;
+  border: none;
+}
+
+.premium-learning-bookmarks-pagination .nav-arrow::after {
+  position: absolute;
+  top: 50%;
+  display: flex;
+  width: 6px;
+  height: 6px;
+  border-width: 0 2px 2px 0;
+  border-style: solid;
+  border-color: var(--spectrum-gray-700);
+  transform-origin: 75% 75%;
+  transform: rotateZ(135deg);
+  transition: transform 0.1s ease;
+  content: '';
+  margin-top: -5px;
+  right: 16px;
+}
+
+.premium-learning-bookmarks-pagination .nav-arrow.right-nav-arrow::after {
+  transform: rotateZ(315deg);
+}
+
+.premium-learning-bookmarks-pagination .nav-arrow.nav-arrow-hidden {
+  pointer-events: none;
+  touch-action: none;
+}
+
+.premium-learning-bookmarks-pagination .nav-arrow.nav-arrow-hidden::after {
+  border-color: var(--spectrum-gray-200);
+}
+
+.premium-learning-bookmarks-pagination .bookmarks-pg-input {
+  width: 60px;
+  height: 32px;
+  text-align: center;
+  border: 1px solid var(--spectrum-gray-300);
+  border-radius: 4px;
+  font-size: 14px;
+  padding: 0 8px;
+  line-height: 30px;
+  box-sizing: border-box;
+  flex-shrink: 0;
+  margin: 0;
+}
+
+.premium-learning-bookmarks-pagination .pagination-text {
+  font-size: 14px;
+  color: var(--spectrum-gray-700);
+  white-space: nowrap;
+  line-height: 32px;
+  display: flex;
+  align-items: center;
+}

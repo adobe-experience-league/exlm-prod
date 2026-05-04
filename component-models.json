@@ -2087,6 +2087,40 @@
         "description": "Subtitle text shown below the heading, e.g. 'Recommended learning based on your activity and progress.'"
       },
       {
+        "component": "select",
+        "name": "cta1_Type",
+        "value": "primary",
+        "label": "First CTA Type",
+        "description": "'Primary' will render a filled blue CTA, 'Secondary' will render a white CTA with a black border and black text",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Primary",
+            "value": "primary"
+          },
+          {
+            "name": "Secondary",
+            "value": "secondary"
+          }
+        ]
+      },
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "cta1_linkText",
+        "value": "",
+        "label": "First CTA Text",
+        "description": "Text to be shown inside button."
+      },
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "cta1_link",
+        "value": "",
+        "label": "First CTA Link",
+        "description": "What link to open when clicking the button."
+      },
+      {
         "component": "multiselect",
         "valueType": "string",
         "name": "contentType",
@@ -2158,6 +2192,40 @@
         "value": "",
         "label": "Description",
         "description": "Description text displayed below the heading."
+      },
+      {
+        "component": "select",
+        "name": "cta1_Type",
+        "value": "primary",
+        "label": "First CTA Type",
+        "description": "'Primary' will render a filled blue CTA, 'Secondary' will render a white CTA with a black border and black text",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Primary",
+            "value": "primary"
+          },
+          {
+            "name": "Secondary",
+            "value": "secondary"
+          }
+        ]
+      },
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "cta1_linkText",
+        "value": "",
+        "label": "First CTA Text",
+        "description": "Text to be shown inside button."
+      },
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "cta1_link",
+        "value": "",
+        "label": "First CTA Link",
+        "description": "What link to open when clicking the button."
       },
       {
         "component": "multiselect",
@@ -4465,10 +4533,34 @@
       },
       {
         "component": "custom-aem-tag",
+        "name": "v2-features",
+        "label": "Feature(s) v2",
+        "valueType": "string",
+        "description": "Select up to 15 features.",
+        "dataSource": {
+          "type": "action",
+          "config": {
+            "name": "getTQTags",
+            "params": {
+              "taxonomyType": "feature"
+            }
+          }
+        },
+        "options": {
+          "dependentField": {
+            "name": "v2-products",
+            "taxonomyType": "product"
+          },
+          "requiredTagsToEnable": ["v2-products"]
+        },
+        "extensionId": "exl-ue-extension"
+      },
+      {
+        "component": "custom-aem-tag",
         "name": "v2-topics",
         "label": "Topic(s) v2",
         "valueType": "string",
-        "description": "Select up to 15 topics or features.",
+        "description": "Select up to 15 topics.",
         "dataSource": {
           "type": "action",
           "config": {
@@ -5634,6 +5726,14 @@
         "description": "Sets the title of the page in page meta."
       },
       {
+        "component": "date-time",
+        "valueType": "date-time",
+        "name": "content-modified-time",
+        "label": "Custom Last Updated Date",
+        "description": "Overrides the last content update date of the page in page metadata.",
+        "placeholder": "YYYY-MM-DD HH:mm:ss"
+      },
+      {
         "component": "aem-content",
         "valueType": "string",
         "name": "signout-redirect-url",
@@ -5699,6 +5799,34 @@
       },
       {
         "component": "custom-aem-tag",
+        "name": "tq-products",
+        "label": "Product(s) v2",
+        "valueType": "string",
+        "description": "Sets the Top Quadrant products(s) tags in page meta.",
+        "dataSource": {
+          "type": "action",
+          "config": {
+            "name": "getTQTags",
+            "params": {
+              "taxonomyType": "product",
+              "validation": true
+            }
+          }
+        },
+        "extensionId": "exl-ue-extension"
+      },
+      {
+        "component": "tq-action-button",
+        "name": "generateTQTags",
+        "label": "Generate TQ Tags",
+        "valueType": "string",
+        "extensionId": "exl-ue-extension",
+        "options": {
+          "requiredTagsToEnable": ["tq-products"]
+        }
+      },
+      {
+        "component": "custom-aem-tag",
         "name": "tq-roles",
         "label": "Role(s) v2",
         "valueType": "string",
@@ -5732,34 +5860,6 @@
           }
         },
         "extensionId": "exl-ue-extension"
-      },
-      {
-        "component": "custom-aem-tag",
-        "name": "tq-products",
-        "label": "Product(s) v2",
-        "valueType": "string",
-        "description": "Sets the Top Quadrant products(s) tags in page meta.",
-        "dataSource": {
-          "type": "action",
-          "config": {
-            "name": "getTQTags",
-            "params": {
-              "taxonomyType": "product",
-              "validation": true
-            }
-          }
-        },
-        "extensionId": "exl-ue-extension"
-      },
-      {
-        "component": "tq-action-button",
-        "name": "generateTQTags",
-        "label": "Generate TQ Tags",
-        "valueType": "string",
-        "extensionId": "exl-ue-extension",
-        "options": {
-          "requiredTagsToEnable": ["tq-roles", "tq-levels", "tq-products"]
-        }
       },
       {
         "component": "custom-aem-tag",
@@ -5846,6 +5946,14 @@
           }
         },
         "extensionId": "exl-ue-extension"
+      },
+      {
+        "component": "date-time",
+        "valueType": "date-time",
+        "name": "content-modified-time",
+        "label": "Custom Last Updated Date",
+        "description": "Overrides the last content update date of the page in page metadata.",
+        "placeholder": "YYYY-MM-DD HH:mm:ss"
       },
       {
         "component": "aem-content",
@@ -5925,6 +6033,34 @@
       },
       {
         "component": "custom-aem-tag",
+        "name": "tq-products",
+        "label": "Product(s) v2",
+        "valueType": "string",
+        "description": "Sets the Top Quadrant products(s) tags in page meta.",
+        "dataSource": {
+          "type": "action",
+          "config": {
+            "name": "getTQTags",
+            "params": {
+              "taxonomyType": "product",
+              "validation": true
+            }
+          }
+        },
+        "extensionId": "exl-ue-extension"
+      },
+      {
+        "component": "tq-action-button",
+        "name": "generateTQTags",
+        "label": "Generate TQ Tags",
+        "valueType": "string",
+        "extensionId": "exl-ue-extension",
+        "options": {
+          "requiredTagsToEnable": ["tq-products"]
+        }
+      },
+      {
+        "component": "custom-aem-tag",
         "name": "tq-roles",
         "label": "Role(s) v2",
         "valueType": "string",
@@ -5958,34 +6094,6 @@
           }
         },
         "extensionId": "exl-ue-extension"
-      },
-      {
-        "component": "custom-aem-tag",
-        "name": "tq-products",
-        "label": "Product(s) v2",
-        "valueType": "string",
-        "description": "Sets the Top Quadrant products(s) tags in page meta.",
-        "dataSource": {
-          "type": "action",
-          "config": {
-            "name": "getTQTags",
-            "params": {
-              "taxonomyType": "product",
-              "validation": true
-            }
-          }
-        },
-        "extensionId": "exl-ue-extension"
-      },
-      {
-        "component": "tq-action-button",
-        "name": "generateTQTags",
-        "label": "Generate TQ Tags",
-        "valueType": "string",
-        "extensionId": "exl-ue-extension",
-        "options": {
-          "requiredTagsToEnable": ["tq-roles", "tq-levels", "tq-products"]
-        }
       },
       {
         "component": "custom-aem-tag",
@@ -6074,6 +6182,14 @@
         "extensionId": "exl-ue-extension"
       },
       {
+        "component": "date-time",
+        "valueType": "date-time",
+        "name": "content-modified-time",
+        "label": "Custom Last Updated Date",
+        "description": "Overrides the last content update date of the page in page metadata.",
+        "placeholder": "YYYY-MM-DD HH:mm:ss"
+      },
+      {
         "component": "aem-content",
         "valueType": "string",
         "name": "signout-redirect-url",
@@ -6093,6 +6209,14 @@
         "name": "jcr:title",
         "label": "Page Title",
         "description": "Sets the title of the page in page meta."
+      },
+      {
+        "component": "date-time",
+        "valueType": "date-time",
+        "name": "content-modified-time",
+        "label": "Custom Last Updated Date",
+        "description": "Overrides the last content update date of the page in page metadata.",
+        "placeholder": "YYYY-MM-DD HH:mm:ss"
       },
       {
         "component": "aem-content",
@@ -10550,6 +10674,139 @@
         "valueType": "string",
         "rootPath": "/content/cq:tags/exl",
         "description": "Select the product for which courses/cohorts should be displayed."
+      },
+      {
+        "component": "select",
+        "name": "cta_Type",
+        "value": "primary",
+        "label": "CTA Type",
+        "description": "'Primary' will render a filled blue CTA, 'Secondary' will render a white CTA with a black border and black text",
+        "valueType": "string",
+        "options": [
+          {
+            "name": "Primary",
+            "value": "primary"
+          },
+          {
+            "name": "Secondary",
+            "value": "secondary"
+          }
+        ]
+      },
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "cta_linkText",
+        "value": "",
+        "label": "CTA Text",
+        "description": "Text to be shown inside button."
+      },
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "cta_link",
+        "value": "",
+        "label": "CTA Link",
+        "description": "This button will be displayed only if the selected product has more than 4 results"
+      }
+    ]
+  },
+  {
+    "id": "premium-learning-bookmarks",
+    "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "heading",
+        "value": "",
+        "label": "Heading"
+      },
+      {
+        "component": "select",
+        "valueType": "string",
+        "name": "headingType",
+        "value": "h3",
+        "label": "Heading Type",
+        "options": [
+          {
+            "name": "H1",
+            "value": "h1"
+          },
+          {
+            "name": "H2",
+            "value": "h2"
+          },
+          {
+            "name": "H3",
+            "value": "h3"
+          },
+          {
+            "name": "H4",
+            "value": "h4"
+          },
+          {
+            "name": "H5",
+            "value": "h5"
+          },
+          {
+            "name": "H6",
+            "value": "h6"
+          }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "premium-learning-active-content",
+    "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "title",
+        "value": "",
+        "label": "Title",
+        "description": "Sets the title for the Premium learning Active cohorts block."
+      },
+      {
+        "component": "select",
+        "valueType": "string",
+        "name": "titleType",
+        "value": "h3",
+        "label": "Title Heading Type",
+        "options": [
+          {
+            "name": "H1",
+            "value": "h1"
+          },
+          {
+            "name": "H2",
+            "value": "h2"
+          },
+          {
+            "name": "H3",
+            "value": "h3"
+          },
+          {
+            "name": "H4",
+            "value": "h4"
+          },
+          {
+            "name": "H5",
+            "value": "h5"
+          },
+          {
+            "name": "H6",
+            "value": "h6"
+          }
+        ]
+      },
+      {
+        "component": "richtext",
+        "valueType": "string",
+        "name": "description",
+        "value": "",
+        "label": "Long Description",
+        "description": "Sets the description of Premium learning browse cards block."
       }
     ]
   }

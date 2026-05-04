@@ -947,6 +947,9 @@ export const URL_SPECIAL_CASE_LOCALES = new Map([
   ['zh-hant', 'zh-TW'],
 ]);
 
+// TODO: Move loadIms() out of scripts.js into a dedicated  utility .
+// and import it from there. Its current location causes a cyclic dependency because
+// premium-learning-utils.js → profile.js → scripts.js → premium-learning-utils.js.
 export async function loadIms() {
   // if adobe IMS was loaded already, return. Especially useful when embedding this code outside this site.
   // eg. embedding header in community which has it's own IMS setup.
@@ -1456,11 +1459,30 @@ export function setMetadata(name, content) {
 }
 
 /**
- * Update TQ Tags metadata for Coveo
+ * Update Legacy and TQ Tags metadata when isV2TagsEnabled FF is enabled
  * @param {Document} document
  */
-export function updateTQTagsForCoveo() {
-  const keyMapping = {
+export function updateLegacyAndV2Tags() {
+  // First, migrate legacy tags to _v1
+  const legacyToV1Mapping = {
+    role: 'role_v1',
+    level: 'level_v1',
+    'coveo-solution': 'product_v1',
+    feature: 'feature_v1',
+    'sub-feature': 'subfeature_v1',
+    industry: 'industry_v1',
+    topic: 'topic_v1',
+  };
+
+  Object.entries(legacyToV1Mapping).forEach(([legacyKey, v1Key]) => {
+    const value = getMetadata(legacyKey);
+    if (value) {
+      setMetadata(v1Key, value);
+    }
+  });
+
+  // Then, migrate _v2 tags to legacy (without suffix)
+  const v2ToLegacyMapping = {
     role_v2: 'role',
     level_v2: 'level',
     product_v2: 'coveo-solution',
@@ -1470,7 +1492,7 @@ export function updateTQTagsForCoveo() {
     topic_v2: 'topic',
   };
 
-  Object.entries(keyMapping).forEach(([sourceKey, targetKey]) => {
+  Object.entries(v2ToLegacyMapping).forEach(([sourceKey, targetKey]) => {
     const value = getMetadata(sourceKey);
     if (!value) return;
 
@@ -1486,6 +1508,22 @@ export function updateTQTagsForCoveo() {
     }
 
     setMetadata(targetKey, formatted);
+  });
+
+  // Remove _v2 tags after processing
+  const v2TagsToRemove = [
+    'role_v2',
+    'level_v2',
+    'product_v2',
+    'feature_v2',
+    'subfeature_v2',
+    'industry_v2',
+    'topic_v2',
+  ];
+
+  v2TagsToRemove.forEach((tag) => {
+    const metaTags = document.head.querySelectorAll(`meta[name="${tag}"]`);
+    metaTags.forEach((metaTag) => metaTag.remove());
   });
 }
 
@@ -1674,6 +1712,10 @@ async function loadPage() {
     decodeAemCqMetaTags();
     updateTQTagsMetadata();
     decodeAemPageMetaTags();
+
+    if (isFeatureEnabled('isV2TagsEnabled')) {
+      updateLegacyAndV2Tags();
+    }
   }
 
   const { suffix: currentPagePath, lang } = getPathDetails();
@@ -1683,38 +1725,6 @@ async function loadPage() {
   const isUserSignedIn = async () => {
     await loadIms();
     return window?.adobeIMS?.isSignedInUser();
-  };
-
-  /**
-   * Resolves with fallback if the promise does not settle in time (e.g. hung PL API).
-   * @template T
-   * @param {Promise<T>} promise
-   * @param {number} ms
-   * @param {T} fallback
-   * @returns {Promise<T>}
-   */
-  const withTimeout = (promise, ms, fallback) =>
-    Promise.race([
-      promise,
-      new Promise((resolve) => {
-        setTimeout(() => resolve(fallback), ms);
-      }),
-    ]);
-
-  /**
-   * Initializes Premium Learning authentication and checks membership status.
-   * @returns {Promise<boolean>} True if user is a PL member, false otherwise
-   */
-  const isPLMember = async () => {
-    try {
-      await window.adobeIMS?.getAccessToken();
-      const { default: initializePLAuthentication, isPremiumLearner } = await import('./utils/pl-auth-utils.js');
-      await initializePLAuthentication();
-      return isPremiumLearner();
-    } catch (error) {
-      console.error('Error checking Premium Learning status:', error);
-      return false;
-    }
   };
 
   const loadTarget = async (isAlreadySignedIn = false) => {
@@ -1742,27 +1752,36 @@ async function loadPage() {
     } else {
       const signedIn = await isUserSignedIn();
       if (signedIn) {
-        // Check PL membership status for signed-in users
-        const plMember = await withTimeout(isPLMember(), 10000, false);
+        // Non-blocking — timeout is handled inside isPLEligible().
+        import('./utils/premium-learning-utils.js')
+          .then(({ isPLEligible }) => isPLEligible(signedIn))
+          .then(async (plMember) => {
+            // Only fetch enrollments if user is BOTH a PL member AND on profile page
+            if (plMember && isProfilePage) {
+              // TODO: Guard this fetch behind a check that the PL blocks are actually present
+              // in the DOM before firing — avoids an unnecessary API call on profile pages
+              // that have no PL content blocks.
+              const { fetchUserEnrollments } = await import('./data-service/premium-learning-data-service.js');
+              const config = getConfig();
+              const enrollmentData = await fetchUserEnrollments(config, 'learningProgram', 10);
+              const hasEnrollments = enrollmentData?.data?.length > 0;
 
-        // Only fetch enrollments if user is BOTH a PL member AND on profile page
-        if (plMember && isProfilePage) {
-          const { fetchUserEnrollments } = await import('./data-service/premium-learning-data-service.js');
-          const config = getConfig();
-          const enrollmentData = await fetchUserEnrollments(config, 'learningProgram', 10);
-          const hasEnrollments = enrollmentData?.data?.length > 0;
+              const activeContentBlock = document.querySelector('.premium-learning-active-content');
+              const suggestedContentBlock = document.querySelector('.premium-learning-suggested-content');
 
-          const activeContentBlock = document.querySelector('.premium-learning-active-content');
-          const suggestedContentBlock = document.querySelector('.premium-learning-suggested-content');
-
-          if (hasEnrollments) {
-            // User has enrollments - remove suggested content block
-            suggestedContentBlock?.remove();
-          } else {
-            // User has no enrollments - remove active content block
-            activeContentBlock?.remove();
-          }
-        }
+              if (hasEnrollments) {
+                // User has enrollments - remove suggested content block
+                suggestedContentBlock?.remove();
+              } else {
+                // User has no enrollments - remove active content block
+                activeContentBlock?.remove();
+              }
+            }
+          })
+          .catch((error) => {
+            // eslint-disable-next-line no-console
+            console.error('Error resolving Premium Learning membership:', error);
+          });
 
         loadPage();
         loadTarget(signedIn);
@@ -1789,29 +1808,29 @@ async function loadPage() {
   if (containsAtomicSearch) {
     initiateCoveoAtomicSearch();
   }
-
-  // Initialize Premium Learning auth for all signed-in users, excluding UE Authoring pages
-  if (!window.hlx.aemRoot && !window.location.href.includes('.html') && isFeatureEnabled('isPremiumLearningEnabled')) {
-    // Helper function to remove premium learning sections
-    const removePremiumLearningSections = () => {
-      document.querySelectorAll('.premium-learning-section').forEach((section) => section.remove());
-    };
-
-    try {
-      const signedIn = await isUserSignedIn();
-
-      if (signedIn) {
-        const plMember = await withTimeout(isPLMember(), 10000, false);
-
-        if (!plMember) {
-          removePremiumLearningSections();
-        }
-      } else {
-        removePremiumLearningSections();
-      }
-    } catch (error) {
-      console.error('Error initializing Premium Learning authentication:', error);
-      removePremiumLearningSections();
+  // Initialize Premium Learning auth — fully non-blocking, does not delay loadPage().
+  if (isFeatureEnabled('isPremiumLearningEnabled')) {
+    if (window.hlx.aemRoot || window.location.href.includes('.html')) {
+      // UE Author Mode: fetch PL token anonymously via ?auth=false (no IMS required).
+      import('./utils/premium-learning-utils.js')
+        .then(({ initPLAuthAnonymous }) => initPLAuthAnonymous())
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error('Error initializing PL auth in UE Author Mode:', error);
+        });
+    } else {
+      // TODO: Remove isUserSignedIn call and move signedIn check to isPLEligible function once cyclic dependency is resolved.
+      isUserSignedIn()
+        .then((signedIn) =>
+          import('./utils/premium-learning-utils.js').then(({ applyPLSectionGating }) =>
+            applyPLSectionGating(signedIn),
+          ),
+        )
+        .catch((error) => {
+          // eslint-disable-next-line no-console
+          console.error('Error initializing Premium Learning authentication:', error);
+          document.querySelectorAll('.premium-learning-section').forEach((s) => s.remove());
+        });
     }
   }
 
