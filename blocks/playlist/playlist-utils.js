@@ -133,7 +133,8 @@ export class Playlist {
     this.mpcListener.on(MCP_EVENT.COMPLETE, this.handleComplete.bind(this));
     this.mpcListener.on(MCP_EVENT.START, () => {
       const { title, description, duration, src } = this.getActiveVideo();
-      pushVideoEvent({ title, description, url: src, duration });
+      const videoId = src?.match(/\/v\/(\d+)/)?.[1] || '';
+      pushVideoEvent({ title, description, url: src, duration, id: videoId });
     });
   }
 
