@@ -783,7 +783,6 @@ export function getConfig() {
       hlxPreview: /^([a-z0-9-]+)--exlm-prod--adobe-experience-league.(hlx|aem).page$/,
       hlxLive: /^([a-z0-9-]+)--exlm-prod--adobe-experience-league.(hlx|aem).live$/,
       community: 'experienceleaguecommunities.adobe.com',
-      // ethos: 'experienceleague-api.ethos09-prod-va7.ethos.adobe.net',
     },
     {
       env: 'STAGE',
@@ -792,7 +791,6 @@ export function getConfig() {
       hlxPreview: /^([a-z0-9-]+)--exlm-stage--adobe-experience-league.(hlx|aem).page$/,
       hlxLive: /^([a-z0-9-]+)--exlm-stage--adobe-experience-league.(hlx|aem).live$/,
       community: 'experienceleaguecommunities-beta.adobe.com',
-      // ethos: 'experienceleague-api-stage.ethos09-prod-va7.ethos.adobe.net',
     },
     {
       env: 'DEV',
@@ -801,7 +799,6 @@ export function getConfig() {
       hlxPreview: /^([a-z0-9-]+)--exlm--adobe-experience-league.(hlx|aem).page$/,
       hlxLive: /^([a-z0-9-]+)--exlm--adobe-experience-league.(hlx|aem).live$/,
       community: 'experienceleaguecommunities-beta.adobe.com',
-      // ethos: 'experienceleague-api-stage.ethos09-prod-va7.ethos.adobe.net',
     },
   ];
 
@@ -860,9 +857,7 @@ export function getConfig() {
   );
   const cdnHost = currentEnv?.cdn || defaultEnv.cdn;
   const communityHost = currentEnv?.community || defaultEnv.community;
-  // const ethosHost = currentEnv?.ethos || defaultEnv.ethos;
   const cdnOrigin = `https://${cdnHost}`;
-  // const ethosOrigin = `https://${ethosHost}`;
   const premiumLearningAuthAPI = `${cdnOrigin}/api/v1/web/alm/authentication`;
   const rawLang = document.querySelector('html').lang || 'en';
   const lang = window.location.hostname.includes(communityHost)
@@ -921,7 +916,6 @@ export function getConfig() {
     quizPassingCriteria: 0.65, // 65% passing criteria for quizzes
     khorosProfileUrl: `${cdnOrigin}/api/action/khoros/profile-menu-list?platform=gainsight`,
     khorosProfileDetailsUrl: `${cdnOrigin}/api/action/khoros/profile-details?platform=gainsight`,
-    // Profile and JWT Token Ethos APIs are reverse proxied through the ExL CDN domains.
     profileUrl: `${cdnOrigin}/api/profile?lang=${lang}`,
     JWTTokenUrl: `${cdnOrigin}/api/token?lang=${lang}`,
     coveoTokenUrl: `${cdnOrigin}/api/action/coveo-token?lang=${lang}`,
