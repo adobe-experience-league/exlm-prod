@@ -21,12 +21,11 @@
 }
 
 #bc-bottom-ask-bar[data-expanded='true'] {
-  gap: 16px 24px;
   height: 72px;
   min-height: 72px;
   max-height: 72px;
-  padding: 12px 24px;
-  justify-content: flex-start;
+  padding: 12px 0;
+  justify-content: center;
   border-top: 1px solid #e8e8e8;
   background: radial-gradient(
       ellipse 40% 140% at 88% 50%,
@@ -146,9 +145,6 @@
 
 .bc-bottom-ask-bar-expanded {
   display: none;
-  flex: 1 1 auto;
-  align-items: center;
-  gap: 16px 24px;
   width: 100%;
   min-width: 0;
 }
@@ -157,15 +153,23 @@
   display: none;
 }
 
+/* Same 3-col track as docs `main` (left rail / article / right rail). */
 #bc-bottom-ask-bar[data-expanded='true'] .bc-bottom-ask-bar-expanded {
-  display: flex;
+  display: grid;
+  grid-template-columns: 1fr 3fr 1fr;
+  align-items: center;
+  box-sizing: border-box;
+  max-width: 1700px;
+  width: 100%;
+  margin-inline: auto;
 }
 
 .bc-bottom-ask-bar-brand {
-  flex: 0 0 auto;
   display: flex;
   align-items: center;
   gap: 10px;
+  min-width: 0;
+  padding-left: 12px;
   font-size: var(--spectrum-font-size-200);
   font-weight: var(--font-weight-bold);
   line-height: 1.5;
@@ -184,19 +188,20 @@
   color: var(--text-color);
 }
 
+/* Center track = docs article column (full 3fr span). Inset so input + send are not flush. */
 .bc-bottom-ask-bar-input-group {
-  flex: 1 1 auto;
-  max-width: 760px;
-  margin-inline: auto;
+  box-sizing: border-box;
+  min-width: 0;
+  width: 100%;
   display: flex;
   align-items: center;
-  gap: 16px;
-  min-width: 0;
+  gap: var(--spectrum-spacing-300);
+  padding-inline: var(--spectrum-spacing-400);
 }
 
 .bc-bottom-ask-bar-input-wrap {
   flex: 1 1 auto;
-  max-width: 704px;
+  max-width: none;
   display: flex;
   align-items: center;
   box-sizing: border-box;
@@ -254,17 +259,22 @@
 
 .bc-bottom-ask-bar-send {
   flex-shrink: 0;
-  display: inline-flex;
+  display: flex;
   align-items: center;
   justify-content: center;
+  box-sizing: border-box;
   width: 40px;
   height: 40px;
   min-width: 40px;
+  min-height: 40px;
+  margin: 0;
   padding: 0;
+  border: none;
   border-radius: 50%;
   background-color: var(--spectrum-gray-200);
   cursor: pointer;
   line-height: 0;
+  text-align: center;
   overflow: visible;
 }
 
@@ -274,6 +284,8 @@
   justify-content: center;
   width: 16px;
   height: 16px;
+  margin: 0;
+  flex-shrink: 0;
   line-height: 0;
 }
 
@@ -281,14 +293,18 @@
   display: block;
   width: 16px;
   height: 16px;
+  margin: 0;
+
+  /* The plane's mass sits in the left of the 24 viewBox; nudge so it reads centered in the disc. */
+  transform: translateX(2px);
 }
 
 .bc-bottom-ask-bar-actions {
-  flex: 0 0 auto;
+  justify-self: end;
   display: flex;
   align-items: center;
   gap: 32px;
-  margin-left: auto;
+  padding-right: 12px;
 }
 
 .bc-bottom-ask-bar-hide {
@@ -384,6 +400,15 @@
   background-color: var(--spectrum-gray-200);
 }
 
+/* The asset is authored for the FAB's white pill (#d8d8d8); on the grey disc the design uses the
+   darker --spectrum-gray-400 (#b1b1b1). An <img> can't inherit currentColor, and the enabled rule
+   below already recolours this same icon with a filter, so stay with that: flatten to white, then
+   scale to the token (255 * 0.694 = 177). There is currently no automated check pinning this value
+   to --spectrum-gray-400, so if that token changes, update the 0.694 multiplier here to match. */
+.bc-bottom-ask-bar-send:disabled .icon img {
+  filter: brightness(0) invert(1) brightness(0.694);
+}
+
 .bc-bottom-ask-bar-send:not(:disabled) .icon img {
   filter: brightness(0) invert(1);
 }
@@ -418,7 +443,7 @@
   border: none;
   font-family: var(--body-font-family);
   font-size: var(--spectrum-font-size-100);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-normal);
   cursor: pointer;
   color: var(--non-spectrum-dark-gray);
   background-color: rgb(255 255 255 / 70%);
@@ -478,9 +503,9 @@
 
 #bc-trigger .bc-trigger-ask {
   font-size: var(--spectrum-font-size-100);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-normal);
   line-height: 1.2;
-  color: var(--non-spectrum-dark-gray);
+  color: var(--spectrum-gray-500);
   letter-spacing: -0.01em;
   transition: color 0.2s ease;
 }
@@ -492,6 +517,13 @@
   margin-left: auto;
   line-height: 0;
   flex-shrink: 0;
+}
+
+/* The design's outlined send glyph fills a square box, unlike the flatter filled plane it
+   replaced, so scope it below the 18px shared with the sparkle icon to hold the FAB's weight. */
+#bc-trigger .bc-trigger-send img {
+  width: 16px;
+  height: 16px;
 }
 
 /* EXLM-5715 — entry variant visibility */
@@ -533,7 +565,7 @@ body:has(#bc-dialog[open]) #bc-bottom-ask-bar {
 }
 
 #bc-trigger:hover .bc-trigger-ask {
-  color: var(--non-spectrum-dark-gray);
+  color: var(--spectrum-gray-800);
 }
 
 #bc-trigger[aria-expanded='true'] {
@@ -948,6 +980,31 @@ body:has(#bc-dialog[open]) #bc-bottom-ask-bar {
 
 #brand-concierge-mount .submit-button svg path {
   fill: white !important;
+}
+
+/*
+ * BC's tooltip lib positions the submit button's tooltip via inline left/top, clamped to stay
+ * inside .input-container. The button sits close to that container's right edge, so wider
+ * translated labels (e.g. es "Enviar mensaje" vs en "Send") get shifted left to avoid
+ * overflowing, breaking the arrow's alignment with the button. Re-anchor it to the button's
+ * horizontal center — via `right` + translateX(50%) so it self-centers regardless of label
+ * width — instead of relying on BC's clamped `left`.
+ */
+#brand-concierge-mount [id^='submit-button-tooltip'] {
+  left: auto !important;
+  right: 28px !important;
+  transform: translateX(50%) !important;
+}
+
+/*
+ * Now permanently overlaps the button's box (even while hidden), so it would otherwise block
+ * real clicks/hovers on the button under it. Selector must out-specify the
+ * ".input-section .input-container *" pointer-events: auto rule above (also !important) —
+ * that rule intentionally re-enables pointer-events for input-container's contents after
+ * .input-section's own passthrough override.
+ */
+#brand-concierge-mount .input-section .input-container [id^='submit-button-tooltip'] {
+  pointer-events: none !important;
 }
 
 #brand-concierge-mount .scroll-to-bottom {

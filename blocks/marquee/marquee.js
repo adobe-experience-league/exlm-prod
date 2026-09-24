@@ -1,12 +1,13 @@
 /* eslint-disable no-plusplus */
 import { decorateIcons } from '../../scripts/lib-franklin.js';
-import decorateCustomButtons from '../../scripts/utils/button-utils.js';
+import { decorateCta } from '../../scripts/utils/button-utils.js';
 import { getLocalizedVideoUrl } from '../../scripts/utils/video-utils.js';
 import { getPathDetails } from '../../scripts/scripts.js';
 import { pushVideoEvent } from '../../scripts/analytics/lib-analytics.js';
 
 function trackMpcVideo(iframe, video) {
   let firstPlay = true;
+  let completed = false;
   const videoId = iframe.src.match(/\/v\/(\d+)/)?.[1] || '';
 
   const handleMessage = (event) => {
@@ -15,7 +16,9 @@ function trackMpcVideo(iframe, video) {
     if (event.data.state === 'play' && firstPlay) {
       firstPlay = false;
       pushVideoEvent({ ...video, id: videoId, duration: event.data.duration || video.duration });
-    } else if (event.data.state === 'complete') {
+    } else if (event.data.state === 'complete' && !completed) {
+      completed = true;
+      pushVideoEvent({ ...video, id: videoId, duration: event.data.duration || video.duration }, 'videoCompleted');
       window.removeEventListener('message', handleMessage);
     }
   };
@@ -192,7 +195,7 @@ export default async function decorate(block) {
         <div class='marquee-title'>${title.innerHTML}</div>
         <div class='marquee-long-description'>${longDescr.innerHTML}</div>
         <div class='marquee-cta'>
-          ${decorateCustomButtons(firstCta, secondCta)}
+          ${decorateCta(firstCta, block, 'cta1')}${decorateCta(secondCta, block, 'cta2')}
         </div>
       </div>
       </div>

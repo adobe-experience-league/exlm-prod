@@ -1,5 +1,5 @@
 import { decorateIcons } from '../../scripts/lib-franklin.js';
-import decorateCustomButtons from '../../scripts/utils/button-utils.js';
+import { decorateCta } from '../../scripts/utils/button-utils.js';
 
 export default function decorate(block) {
   const children = [...block.children];
@@ -90,7 +90,7 @@ export default function decorate(block) {
         // Only show CTA if author provided real label text
         if (text && href && text !== href) {
           ctaCell.classList.add('grid-card-cta');
-          ctaCell.innerHTML = decorateCustomButtons(ctaCell);
+          ctaCell.innerHTML = decorateCta(ctaCell, block, 'cta');
           contentWrapper.appendChild(ctaCell);
         }
       }
@@ -99,13 +99,15 @@ export default function decorate(block) {
     // create clickable wrapper for wide card
     if (isWide) {
       const anchor = ctaCell?.querySelector('a');
-      if (anchor?.href) {
-        anchor.textContent = '';
-        anchor.classList.add('grid-card-link');
-        if (picture) anchor.appendChild(picture);
-        anchor.appendChild(contentWrapper);
-        cardRow.appendChild(anchor);
+      const href = anchor?.getAttribute('href')?.trim();
+      const wrapper = href ? anchor : document.createElement('div');
+      wrapper.textContent = '';
+      wrapper.classList.add('grid-card-link');
+      if (picture) wrapper.appendChild(picture);
+      wrapper.appendChild(contentWrapper);
+      cardRow.appendChild(wrapper);
 
+      if (href) {
         // Add componentClick tracking for wide variant
         anchor.addEventListener('click', async () => {
           const { pushComponentClick, generateComponentID } = await import('../../scripts/analytics/lib-analytics.js');
