@@ -597,7 +597,9 @@ export default function atomicResultHandler(block, placeholders) {
   } else if (!searchLayout.classList.contains('no-results')) {
     baseElement.classList.add('list-wrap-skeleton');
     container.style.cssText = 'display: none;';
-    if (!blockSkeletonStillUp) {
+    // Idempotent: RESULT_FOUND → commonActionHandler can re-enter while results are empty.
+    // A second .skeleton-wrapper paints as another shimmer row under the page overlay (EXLM-6175).
+    if (!blockSkeletonStillUp && !container.parentElement.querySelector('.skeleton-wrapper')) {
       const skeletonWrapper = htmlToElement(`<div class="skeleton-wrapper" part="skeleton"></div>`);
       skeletonWrapper.innerHTML = renderAtomicSekeletonUI();
       container.parentElement.appendChild(skeletonWrapper);
@@ -608,6 +610,12 @@ export default function atomicResultHandler(block, placeholders) {
   }
 
   function onClearBtnClick() {
+    const clearLabel = document.querySelector('.clear-label');
+    // Disabled Clear All is still clickable in the DOM; ignore it so SEARCH_CLEARED
+    // does not leave facet shimmers stuck (EXLM-6175 regression).
+    if (!clearLabel?.classList.contains('clear-btn-enabled')) {
+      return;
+    }
     const atomicBreadBox = document.querySelector('atomic-breadbox');
     // Atomic 3.60 may expose clear as part token list; keep exact + contains match.
     const coveoClearBtn =
@@ -1266,6 +1274,14 @@ export default function atomicResultHandler(block, placeholders) {
     });
     document.dispatchEvent(event);
   };
+
+  // RESULT_FOUND → commonActionHandler re-enters this function. Refresh cards, but do not
+  // stack ResizeObserver / MutationObserver / fail-safe timers (EXLM-6175).
+  if (baseElement.dataset.resultHandlerBound === 'true') {
+    updateAtomicResultUI();
+    return;
+  }
+  baseElement.dataset.resultHandlerBound = 'true';
 
   const onResize = () => {
     const isMobileView = isMobile();
