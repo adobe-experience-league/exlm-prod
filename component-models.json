@@ -1090,10 +1090,10 @@
       {
         "component": "text",
         "valueType": "string",
-        "name": "section-id",
+        "name": "id",
         "value": "",
         "label": "Section ID (Optional)",
-        "description": "Optional. A unique identifier for this section used for anchor links and navigation."
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
       },
       {
         "component": "select",
@@ -1251,6 +1251,14 @@
     "id": "courses-section",
     "fields": [
       {
+        "component": "text",
+        "valueType": "string",
+        "name": "id",
+        "value": "",
+        "label": "Section ID (Optional)",
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
+      },
+      {
         "component": "select",
         "name": "style",
         "value": "",
@@ -1284,6 +1292,14 @@
   {
     "id": "course-hub-section",
     "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "id",
+        "value": "",
+        "label": "Section ID (Optional)",
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
+      },
       {
         "component": "select",
         "name": "style",
@@ -1333,6 +1349,14 @@
   {
     "id": "article-content-section",
     "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "id",
+        "value": "",
+        "label": "Section ID (Optional)",
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
+      },
       {
         "component": "select",
         "name": "style",
@@ -2138,6 +2162,10 @@
           {
             "name": "Background Color",
             "children": [
+              {
+                "name": "Black",
+                "value": "bg-spectrum-gray-900"
+              },
               {
                 "name": "Gray",
                 "value": "bg-spectrum-gray-700"
@@ -6205,6 +6233,14 @@
     "id": "profile-section",
     "fields": [
       {
+        "component": "text",
+        "valueType": "string",
+        "name": "id",
+        "value": "",
+        "label": "Section ID (Optional)",
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
+      },
+      {
         "component": "select",
         "name": "style",
         "value": "",
@@ -6245,6 +6281,14 @@
   {
     "id": "profile-bottom-section",
     "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "id",
+        "value": "",
+        "label": "Section ID (Optional)",
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
+      },
       {
         "component": "select",
         "name": "style",
@@ -6306,6 +6350,14 @@
   {
     "id": "premium-learning-section",
     "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "id",
+        "value": "",
+        "label": "Section ID (Optional)",
+        "description": "Optional. A page-unique ID for links directly to this section, without #. Please use kebab-case: lowercase words separated by hyphens, e.g. section-id."
+      },
       {
         "component": "select",
         "name": "style",
@@ -10138,7 +10190,7 @@
         "name": "sectionId",
         "value": "",
         "label": "Section ID",
-        "description": "The ID of the section this nav item navigates to. Must match the Section ID set on the target section."
+        "description": "Match the target section's Section ID exactly, without #."
       },
       {
         "component": "text",
@@ -10362,6 +10414,18 @@
   {
     "id": "featured-advocates",
     "fields": [
+      {
+        "component": "aem-content",
+        "valueType": "string[]",
+        "value": [],
+        "name": "advocates",
+        "multi": true,
+        "label": "Advocates",
+        "description": "Optional. Multi-select advocate profile pages to feature. Leave empty to auto-include all eligible champions. Picker is English-only: champion pages and champion-index currently exist under /en/champions only (same pattern as other EXLM content pickers).",
+        "validation": {
+          "rootPath": "/content/exlm/global/en/champions"
+        }
+      },
       {
         "component": "boolean",
         "valueType": "boolean",
