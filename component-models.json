@@ -1026,6 +1026,32 @@
     ]
   },
   {
+    "id": "columns-title",
+    "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "jcr:title",
+        "value": "",
+        "label": "Text"
+      },
+      {
+        "component": "select",
+        "name": "type",
+        "value": "h2",
+        "label": "Type",
+        "valueType": "string",
+        "options": [
+          { "name": "h2", "value": "h2" },
+          { "name": "h3", "value": "h3" },
+          { "name": "h4", "value": "h4" },
+          { "name": "h5", "value": "h5" },
+          { "name": "h6", "value": "h6" }
+        ]
+      }
+    ]
+  },
+  {
     "id": "image",
     "fields": [
       {
@@ -1502,14 +1528,72 @@
         "valueType": "string",
         "name": "classes",
         "label": "Style Type",
+        "description": "Choose one option per group. Select a background color to highlight the first row or column. For accessibility, white text applies only on Adobe red. Row colors take precedence unless Column is selected.",
         "options": [
           {
-            "name": "Border w/ alternating rows",
-            "value": "b-alt-row"
+            "name": "Style Options",
+            "children": [
+              { "name": "Border w/ alternating rows", "value": "b-alt-row" },
+              { "name": "Align to middle", "value": "align-middle" }
+            ]
           },
           {
-            "name": "Align to middle",
-            "value": "align-middle"
+            "name": "Padding (values per side)",
+            "children": [
+              { "name": "Default", "value": "padding-comparison-default" },
+              {
+                "name": "Balanced (8px top/bottom and left/right)",
+                "value": "padding-comparison-balanced"
+              },
+              {
+                "name": "Most compact (4px top/bottom and left/right)",
+                "value": "padding-comparison-most-compact"
+              }
+            ]
+          },
+          {
+            "name": "Column width",
+            "children": [
+              { "name": "Equal", "value": "column-width-equal" },
+              { "name": "Fit to content", "value": "column-width-fit-content" }
+            ]
+          },
+          {
+            "name": "First row background",
+            "children": [
+              { "name": "Very pale red", "value": "row-bg-ffeceb" },
+              { "name": "Light pink-red", "value": "row-bg-ffcbc7" },
+              { "name": "Adobe red", "value": "row-bg-eb1100" }
+            ]
+          },
+          {
+            "name": "First row text",
+            "children": [
+              { "name": "Black (default)", "value": "row-text-black" },
+              { "name": "White (only on Adobe red)", "value": "row-text-white" }
+            ]
+          },
+          {
+            "name": "First column background",
+            "children": [
+              { "name": "Very pale red", "value": "column-bg-ffeceb" },
+              { "name": "Light pink-red", "value": "column-bg-ffcbc7" },
+              { "name": "Adobe red", "value": "column-bg-eb1100" }
+            ]
+          },
+          {
+            "name": "First column text",
+            "children": [
+              { "name": "Black (default)", "value": "column-text-black" },
+              { "name": "White (only on Adobe red)", "value": "column-text-white" }
+            ]
+          },
+          {
+            "name": "Highlight precedence (used only when both backgrounds are selected)",
+            "children": [
+              { "name": "Row (default)", "value": "highlight-precedence-row" },
+              { "name": "Column", "value": "highlight-precedence-column" }
+            ]
           }
         ]
       }
@@ -6005,7 +6089,57 @@
   },
   {
     "id": "events-search",
-    "fields": []
+    "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "heading",
+        "value": "",
+        "label": "Heading",
+        "description": "Optional heading above search, for example Browse all events."
+      },
+      {
+        "component": "select",
+        "valueType": "string",
+        "name": "headingType",
+        "value": "h2",
+        "label": "Heading Type",
+        "options": [
+          { "name": "H2", "value": "h2" },
+          { "name": "H3", "value": "h3" },
+          { "name": "H4", "value": "h4" },
+          { "name": "H5", "value": "h5" },
+          { "name": "H6", "value": "h6" }
+        ]
+      }
+    ]
+  },
+  {
+    "id": "perspectives-search",
+    "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "heading",
+        "value": "",
+        "label": "Heading",
+        "description": "Optional heading above search, for example Browse all perspectives."
+      },
+      {
+        "component": "select",
+        "valueType": "string",
+        "name": "headingType",
+        "value": "h2",
+        "label": "Heading Type",
+        "options": [
+          { "name": "H2", "value": "h2" },
+          { "name": "H3", "value": "h3" },
+          { "name": "H4", "value": "h4" },
+          { "name": "H5", "value": "h5" },
+          { "name": "H6", "value": "h6" }
+        ]
+      }
+    ]
   },
   {
     "id": "featured-authors",
@@ -8903,7 +9037,30 @@
   },
   {
     "id": "playlist-browse",
-    "fields": []
+    "fields": [
+      {
+        "component": "text",
+        "valueType": "string",
+        "name": "heading",
+        "value": "",
+        "label": "Heading",
+        "description": "Optional heading above search, for example Browse all playlists."
+      },
+      {
+        "component": "select",
+        "valueType": "string",
+        "name": "headingType",
+        "value": "h2",
+        "label": "Heading Type",
+        "options": [
+          { "name": "H2", "value": "h2" },
+          { "name": "H3", "value": "h3" },
+          { "name": "H4", "value": "h4" },
+          { "name": "H5", "value": "h5" },
+          { "name": "H6", "value": "h6" }
+        ]
+      }
+    ]
   },
   {
     "id": "playlist-embed",
@@ -9591,19 +9748,15 @@
         "name": "heading",
         "value": "",
         "label": "Heading",
-        "description": "Sets the headline for Upcoming events."
+        "description": "Optional heading above search, for example Browse all courses."
       },
       {
         "component": "select",
         "valueType": "string",
         "name": "headingType",
-        "value": "h3",
+        "value": "h2",
         "label": "Heading Type",
         "options": [
-          {
-            "name": "H1",
-            "value": "h1"
-          },
           {
             "name": "H2",
             "value": "h2"
@@ -9625,14 +9778,6 @@
             "value": "h6"
           }
         ]
-      },
-      {
-        "component": "text",
-        "valueType": "string",
-        "name": "filterLabel",
-        "value": "",
-        "label": "Filter Label",
-        "description": "Sets the text for Products filter label in dropdown."
       }
     ]
   },
